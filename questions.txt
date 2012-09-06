@@ -1,0 +1,13 @@
+Are these transponders or bats
+
+000615d8a9, 8EEEEEEEE8, EEEEEEEEEE, ECEEEEEEEE,88E8E8E88E,
+EEEEEEEEE6,E8EEEEEEEE - counter as transponders for now
+
+
+000697B587 -bat but does not appear anywhere!!!!
+
+
+
+/*BATS WHICH DO NOT EXIST IN THE DATABASE AS NEITHER MOTHERS NOR DAUGHTERS
+      4A31, 6D0D, A2BA, B587*/
+    
