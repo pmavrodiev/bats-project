@@ -7,7 +7,7 @@ SCANNER_HEADER		= standard.yy.h
 SCANNER_OPTIONS		= --outfile=${SCANNER_FILE} --header-file=${SCANNER_HEADER}
 CPP 			= g++
 CPPFLAGS 		= -g -Wall -Wextra -pedantic -Wshadow
-LDFLAGS			= -ll -lboost_date_time -ligraph -lsqlite3
+LDFLAGS			= -ll -lboost_date_time -ligraph -lsqlite3.l
 OBJS			= standard.yy.o parse.o
 RM			= rm
 

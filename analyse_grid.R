@@ -238,7 +238,7 @@ dev.off()
 ##plot the distribution of chunk sizes only for those chunk which
 #recored a leading-following event
 
-setwd("/home/pmavrodiev/Documents/bats/")
+setwd("/home/pmavrodiev/Documents/bats/result_files/")
 fileName = "lf_chunks_times_span.txt"
 chunks = read.table(fileName,colClasses="character")
 times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))

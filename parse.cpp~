@@ -750,7 +750,7 @@ int what_node_sizes=2;
 
 
 
-bool create_sqlitedb=false; //should we write the recordings of all boxes in a database
+bool create_sqlitedb=true; //should we write the recordings of all boxes in a database
 string file_sqlitedb = "box_recordings_2008.sqlite";
 //callback function for the sqlite query exec
 static int callback(void *NotUsed, int argc, char **argv, char **azColName) { 
