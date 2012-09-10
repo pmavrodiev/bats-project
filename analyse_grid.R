@@ -235,11 +235,14 @@ plot(time_breaks[which(counts!=0)],log(counts[counts!=0]),type="p",pch=4,
      xlab="Minutes",ylab="log(PDF)",cex.lab=4,cex.axis=4,cex=3)
 dev.off()
 
-##plot the distribution of chunk sizes only for those chunk which
+##plot the distribution of chunk sizes only for those chunks which
 #recored a leading-following event
 
 setwd("/home/pmavrodiev/Documents/bats/result_files/")
-fileName = "lf_chunks_times_span.txt"
+#fileName = "lf_chunks_times_span.txt"
+#all lead-follow events were recorded in chunks of less than 10 minutes.
+#in this way phoney lf events from swarming are avoided.
+fileName = "lf_chunks_times_span_10mins.txt" 
 chunks = read.table(fileName,colClasses="character")
 times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))
 min_limit = min(times)
@@ -252,7 +255,8 @@ counts=hist(times,breaks=time_breaks)$counts
 counts =  counts / sum(counts)
 
 
-CairoPDF("lf_chunk_time_span_distr.pdf",width=20,height=20)
+#CairoPDF("lf_chunk_time_span_distr.pdf",width=20,height=20)
+CairoPDF("lf_chunk_time_span_distr_10mins.pdf",width=20,height=20)
 par(mar=c(8,9,1,1),mgp=c(6,2,0),pty="s")
 plot(times,ylab="Minutes",xlab="Chunk Number",cex.axis=4,cex.lab=4,type="p",pch=4,cex=3)
 plot(time_breaks[which(counts!=0)],counts[counts!=0],type="p",pch=4,

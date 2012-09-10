@@ -1639,21 +1639,23 @@ int main(int argc, char**argv) {
 	      }
 	      else {cout<<"Sanity checks failed: A bat is neither naiive nor experienced"<<endl;}      
 	    }
-	    Event lfevent(leaders,followers,p,bx,"LeadFollow");
-	    //all_leadfollows.push_back(lfevent);
-	    bx->events.push_back(lfevent);
-	    all_events.insert(lfevent);
-	    //insert as many times as there are leading following events (i.e. edges in the network)
-	    //for (unsigned hh=0; hh<leaders.size()*followers.size(); hh++)
-	    lf_chunk_sizes.push_back(t);
+	    //register a lead follow event only if its in a chunk not longer than 10 minutes
+	    if (t <= minutes(10)) {
+	      Event lfevent(leaders,followers,p,bx,"LeadFollow");
+	      //all_leadfollows.push_back(lfevent);
+	      bx->events.push_back(lfevent);
+	      all_events.insert(lfevent);
+	      //insert as many times as there are leading following events (i.e. edges in the network)
+	      //for (unsigned hh=0; hh<leaders.size()*followers.size(); hh++)
+	      lf_chunk_sizes.push_back(t);
+	    }
 	  }
 	  else {cout<<"Sanity checks failed: Number of experience plus naiive bats not the same as chunk size"<<endl;} 
 	  from = to; //move the 'from' pointer
 	  bx = &boxes[to->box_name]; //point the box pointer to the box of the current BatEntry
 	}
 	prev_instruction_time = to->TimeOfEntry;
-      }  
-      
+      }      
       //print the sizes of the chunks in which all leading-following events were recorded
       for (unsigned k=0; k<lf_chunk_sizes.size(); k++) 
 	  cout<<to_simple_string(lf_chunk_sizes[k])<<endl;
@@ -1931,47 +1933,50 @@ int main(int argc, char**argv) {
 
    }
    
-   /* write the box recordings in a database if so configured. see the create_sqlitedb
-      flag in the global definitions */
-   map<string,Box>::iterator jj;
-   sqlite3 *db;
-   char *zErrMsg = 0;   
+   if (create_sqlitedb) {
+    /* write the box recordings in a database if so configured. see the create_sqlitedb
+	flag in the global definitions */
+    map<string,Box>::iterator jj;
+    sqlite3 *db;
+    char *zErrMsg = 0;   
    
-   int rc = sqlite3_open(file_sqlitedb.c_str(),&db);
-   if (rc) {
-      cout<<"Can't open database: "<<sqlite3_errmsg(db)<<endl;
-      sqlite3_close(db);
-      return 1;
-   }
+    int rc = sqlite3_open(file_sqlitedb.c_str(),&db);
+    if (rc) {
+	cout<<"Can't open database: "<<sqlite3_errmsg(db)<<endl;
+	sqlite3_close(db);
+	return 1;
+    }
+    //create table
+    stringstream create_tb_query;
+    create_tb_query<<"CREATE TABLE recordings (";
+    create_tb_query<<"id INTEGER PRIMARY KEY, TimeOfEntry TEXT, bat_id TEXT, occurences INTEGER, boxname TEXT);";      
+    rc=sqlite3_exec(db,create_tb_query.str().c_str(),callback,0,&zErrMsg);      
+    if (rc != SQLITE_OK) {
+      cout<<"SQL error: "<<zErrMsg<<endl;	
+      sqlite3_free(zErrMsg);	
+    }   
    
-   for (jj = boxes.begin(); jj != boxes.end(); jj++) {
-      Box bb = jj->second;
-      //create tables
-      stringstream create_tb_query;
-      create_tb_query<<"CREATE TABLE \""<<bb.name<<"\" (";
-      create_tb_query<<"id INTEGER PRIMARY KEY, TimeOfEntry TEXT, bat_id TEXT, occurences TEXT);";      
-      rc=sqlite3_exec(db,create_tb_query.str().c_str(),callback,0,&zErrMsg);      
-      if (rc != SQLITE_OK) {
-	cout<<"SQL error: "<<zErrMsg<<endl;
-	sqlite3_free(zErrMsg);	
-      }      
-      for (set<BatEntry,batEntryCompare>::iterator j=bb.activity.begin(); j!=bb.activity.end(); j++) {	
-	stringstream insert_tb_query;
-	insert_tb_query<<"INSERT INTO \""<<bb.name<<"\" (TimeOfEntry, bat_id, occurences) values (";
-	string datetime = to_simple_string(j->TimeOfEntry);
-	//replace the ":" and " " in insert_query because sql doesn't like them
-	//replace(datetime.begin(),datetime.end(),':','-');
-	//replace(datetime.begin(),datetime.end(),' ','-');	
-	insert_tb_query<<"\""<<datetime<<"\",\""<<j->hexid<<"\","<<j->occurence<<");";
-	cout<<insert_tb_query.str().c_str()<<endl;
-	rc = sqlite3_exec(db,insert_tb_query.str().c_str(),callback,0,&zErrMsg);
-        if (rc != SQLITE_OK) {
-	  cout<<"SQL error: "<<zErrMsg<<endl;
-	  sqlite3_free(zErrMsg);	
+    for (jj = boxes.begin(); jj != boxes.end(); jj++) {
+	Box bb = jj->second;
+	for (set<BatEntry,batEntryCompare>::iterator j=bb.activity.begin(); j!=bb.activity.end(); j++) {	
+	  stringstream insert_tb_query;
+	  insert_tb_query<<"INSERT INTO recordings (TimeOfEntry, bat_id, occurences, boxname) values (";
+	  string datetime = to_simple_string(j->TimeOfEntry);
+	  //replace the ":" and " " in insert_query because sql doesn't like them
+	  //replace(datetime.begin(),datetime.end(),':','-');
+	  //replace(datetime.begin(),datetime.end(),' ','-');	
+	  insert_tb_query<<"\""<<datetime<<"\",\""<<j->hexid<<"\","<<j->occurence<<",\""<<bb.name<<"\");";
+	  cout<<insert_tb_query.str().c_str()<<endl;
+	  rc = sqlite3_exec(db,insert_tb_query.str().c_str(),callback,0,&zErrMsg);
+	  if (rc != SQLITE_OK) {
+	    cout<<"SQL error: "<<zErrMsg<<endl;
+	    sqlite3_free(zErrMsg);	
+	  }
 	}
-      }
-   }
-  sqlite3_close(db);       
+    }
+    sqlite3_close(db);
+  }
+  
   return 0;
 }
 
