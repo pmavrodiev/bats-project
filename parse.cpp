@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <list>
 #include "standard.yy.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
@@ -37,6 +38,7 @@ class Bat; //represents a box
 class BatEntry; //represents an entry of a bat into a box
 class Box;
 class Event;
+class Lf_pair;
 /* ===================================================================== */
 
 /* ======================== CLASS DEFINITIONS ========================== */
@@ -103,6 +105,7 @@ public:
   set<BatEntry,batEntryCompare> activity;
   vector<Event> events; //all events that happened in this box
   BoxStatus status; //has this box been discovered or not
+  pair<string,ptime> discoveredBy; //who discovered the box and then
   Box(short Type, string Name) {
     type = Type;
     name = Name;
@@ -212,12 +215,32 @@ public:
   }
 };
 
+class Lf_pair {
+public:
+  Bat leader;
+  Bat follower;
+  string box_name;
+  ptime tleader;
+  ptime tfollower;
+  Lf_pair(Bat l, Bat f, ptime tl, ptime tf,string bname) {
+    leader = l; follower = f; tleader = tl; tfollower = tf; box_name = bname;
+  }
+  void print() {
+    cout<<follower.hexid<<" {"<<to_simple_string(tfollower)<<"} --> ";
+    cout<<leader.hexid<<" {"<<to_simple_string(tleader)<<"}\t";
+    cout<<box_name<<endl;
+  }  
+};
+
+
 /* ==================================================================== */
 
 /* ======================== GLOBAL DEFINITIONS ======================= */
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
 time_duration time_chunk = minutes(3);
+//maximum allowed delay between a leader and a follower
+time_duration lf_delay = minutes(3);
 //min. time interval for flying between two boxes
 time_duration min_time_interval = minutes(0.1);
 
@@ -1529,7 +1552,8 @@ int main(int argc, char**argv) {
       //int counter1 = 0;
       Bat *bt = NULL; //use bats_records to get a handle to a bat given its hexid.
       Box *bx = &boxes[multibats.begin()->box_name]; //get the first box in multibats	
-	
+      //store all pairs of experience and naiive bats
+      vector<Lf_pair> vec_lfpairs;      
       //IMPORTANT: DO THE ANALYSIS ONE BOX AT A TIME!!!!    
       vector<time_duration> lf_chunk_sizes; //stores the time duration of the chunk that a lead-follow event was recorded in
       for (to=multibats.begin(); to != multibats.end(); to++) {     
@@ -1541,134 +1565,90 @@ int main(int argc, char**argv) {
 	  //what is the time span of the chunk?
 	  vector<BatEntry>::iterator last_chunk_element = chunk.end();
 	  last_chunk_element--; //go to the real last element
-	  time_duration t = last_chunk_element->TimeOfEntry - chunk.begin()->TimeOfEntry;
-	  //cout<<to_simple_string(t)<<endl;
-	  //how many different bats are in the chunk?
-	  //the easiest (!=most efficient) way is to insert the bats' hexids into a set<String>
-	  set<string> unique_bats;	
-	  set<string>::iterator unique_bats_itr;
-	  map<string,ptime> eventTime; //used to store the last time a given bat was recorded doind a particular event
-				     //for example if a bat discovers a box and circles around it for some time
-				     //we will store the first recording in the map	 
-	
-	  //cout<<"Chunk "<<++counter1<<endl;
-	  for (vector<BatEntry>::iterator iter = chunk.begin(); iter != chunk.end(); iter++) {	  
-	    //iter->print();
-	    unique_bats.insert(iter->hexid);
-	    ptime &ptimeref = eventTime[iter->hexid];
-	    if (ptimeref.is_not_a_date_time()) ptimeref = iter->TimeOfEntry; //always take the first entry	  
-	  }
-	  //unique_bats should know contain the number of different bats in the chunk
-	  /*determine how many experienced and naiive bats we have in the chunk. possible combinations are:
-	   -All NAIIVE + UNDISCOVERED BOX: 1 DISCOVERY EVENT + N-1 EXPLORATORY EVENTS
-	   -ALL NAIIVE + DISCOVERED BOX: N EXPLORATORY EVENTS
-	   -ALL EXPERIENCED + DISCOVERED BOX: N REVISITS	   
-	   -K EXPERIENCED + L NAIIVE + DISCOVERED BOX: LEADFOLLOW(K,L)*/
-	  //first count the experience and naiive bats	  
-	  unsigned experienced = 0; unsigned naiive = 0;
-	  for (unique_bats_itr = unique_bats.begin(); unique_bats_itr != unique_bats.end(); unique_bats_itr++) {
-	    //use bats_records to get a handle to a bat given its hexid.
-	    bt = &bats_records[*unique_bats_itr];
-	    if (bt->box_knowledge[bx->name] == NAIIVE) naiive++;
-	    else experienced++;
-	  }
-	  //ALL NAIIVE
-	  if (unique_bats.size() == 0) continue;
-	  if (naiive == unique_bats.size()) {
-	    //N EXPLORATORY EVENTS
-	    if (bx->status == DISCOVERED) {
-	      for (unique_bats_itr = unique_bats.begin(); unique_bats_itr != unique_bats.end(); unique_bats_itr++) {
-		bats_records[*unique_bats_itr].box_knowledge[bx->name] = EXPERIENCED;
-		bt = &bats_records[*unique_bats_itr];
-		bt->box_knowledge[bx->name] = EXPERIENCED;
-		vector<Bat *> exploring_bat; exploring_bat.push_back(bt);
-		Event eevent(exploring_bat,eventTime[bt->hexid],bx,"Exploration");
-		//all_explorations.push_back(eevent);		
-		bx->events.push_back(eevent);
-		all_events.insert(eevent);
-	      }     
+	  //time_duration t = last_chunk_element->TimeOfEntry - chunk.begin()->TimeOfEntry;
+	  //stores an individual with a vector of all times that this individual has been
+	  //recorded in the chunk. 2 maps for leaders and followers. The idea is then to 
+	  //pair up all followers to leaders, respecting the "3-minute" rule
+	  map<string, vector<ptime> > leaders, followers;
+	  //always set the first bat in the chunk to be the discoverer if the box has not beed
+	  //discovered yet. should happen only once for each box
+	  vector<BatEntry>::iterator iter = chunk.begin();
+	  if (bx->status == UNDISCOVERED) {
+	    bx->status = DISCOVERED;
+	    pair<string,ptime> discoverer(iter->hexid,iter->TimeOfEntry);
+	    bx->discoveredBy = discoverer;
+	    bt = &bats_records[iter->hexid];
+	    bt->box_knowledge[bx->name] = EXPERIENCED;
+	    vector<ptime> v; v.push_back(iter->TimeOfEntry);
+	    leaders[bt->hexid] = v;
+	  }	  
+	  //start analysing the chunk either from the first element
+	  for (iter=chunk.begin(); iter != chunk.end(); iter++) {	
+	    bt = &bats_records[iter->hexid];
+	    //is this an experienced or naiive bat
+	    if (bt->box_knowledge[bx->name] == EXPERIENCED) {
+	      //add to the leaders map. if it exists update its timings vector
+	      vector<ptime> &ptimevector = leaders[bt->hexid];
+	      ptimevector.push_back(iter->TimeOfEntry);
 	    }
-	    //1 DISCOVERY EVENT + N-1 EXPLORATORY EVENTS
-	    else if (bx->status == UNDISCOVERED) {
-	      bx->status = DISCOVERED;
-	      //1 DISCOVERY EVENT
-	      bt = &bats_records[*unique_bats.begin()]; //the first one is the discoverer
-	      bt->box_knowledge[bx->name] = EXPERIENCED;	     
-	      vector<Bat *> discovering_bat; discovering_bat.push_back(bt);
-	      Event devent(discovering_bat,eventTime[bt->hexid],bx,"Discovery");
-	      //all_discoveries.push_back(devent);
-	      bx->events.push_back(devent);
-	      all_events.insert(devent);
-	      //N-1 EXPLORATORY EVENTS
-	      for (unique_bats_itr = ++unique_bats.begin(); unique_bats_itr != unique_bats.end(); unique_bats_itr++) {
-		bt = &bats_records[*unique_bats_itr];
-		bt->box_knowledge[bx->name] = EXPERIENCED;
-		vector<Bat *> exploring_bat; exploring_bat.push_back(bt);
-		Event eevent(exploring_bat,eventTime[bt->hexid],bx,"Exploration");
-		//all_explorations.push_back(eevent);
-		bx->events.push_back(eevent);		
-		all_events.insert(eevent);
-	      }	
+	    else if (bt->box_knowledge[bx->name] == NAIIVE) {
+	      //add to the followers map. if it exists update its timings vector
+      	      vector<ptime> &ptimevector = followers[bt->hexid];
+	      ptimevector.push_back(iter->TimeOfEntry);
+	    }
+	    else {
+	      cout<<"Failed sanity checks: Bat "<<bt->hexid<<" is neither experienced nor naiive about Box "<<bx->name<<endl;	      
 	    }
 	  }
-	  //ALL EXPERIENCED + DISCOVERED BOX: N REVISITS	   
-	  else if (experienced == unique_bats.size() && bx->status == DISCOVERED) {
-	    for (unique_bats_itr = unique_bats.begin(); unique_bats_itr != unique_bats.end(); unique_bats_itr++) {
-		bt = &bats_records[*unique_bats_itr];		
-		vector<Bat *> revisiting_bat; revisiting_bat.push_back(bt);
-		Event revent(revisiting_bat,eventTime[bt->hexid],bx,"Revisit");
-		//all_revisits.push_back(revent);
-		bx->events.push_back(revent);
-		all_events.insert(revent);
-	    }
+	  //set all bats in the chunk to experienced
+	  for (iter=chunk.begin(); iter != chunk.end(); iter++) {	
+	    bt = &bats_records[iter->hexid];
+	    bt->box_knowledge[bx->name] = EXPERIENCED;
 	  }
-	  //K EXPERIENCED + L NAIIVE + DISCOVERED BOX: LEADFOLLOW(K,L)
-	  else if (experienced+naiive == unique_bats.size()) {
-	    vector<Bat *> leaders, followers;
-	    ptime p;
-	    for (unique_bats_itr = unique_bats.begin(); unique_bats_itr != unique_bats.end(); unique_bats_itr++) {
-	      bt = &bats_records[*unique_bats_itr];
-	      if (bt->box_knowledge[bx->name] == NAIIVE) {		
-		followers.push_back(bt);
-		bt->box_knowledge[bx->name] = EXPERIENCED; //the follower now knows about the box
+	  //now match leaders to followers respecting the "3-minute" rule
+	  for (map<string,vector<ptime> >::iterator ii = followers.begin(); ii != followers.end(); ii++) {
+	    for (map<string,vector<ptime> >::iterator jj = leaders.begin(); jj != leaders.end(); jj++) {
+	      time_duration minimum_time_delay(pos_infin); //must be very very big
+	      ptime leader(pos_infin); ptime follower(pos_infin);
+	      //find the minimum distance between a leader and a follower
+	      for (unsigned iii=0; iii < ii->second.size(); iii++) {    
+		for (unsigned jjj=0; jjj < jj->second.size(); jjj++) {
+		  time_duration current_time_delay = ii->second[iii] - jj->second[jjj];
+		  if (current_time_delay.is_negative()) 		    
+		    current_time_delay = current_time_delay.invert_sign();	  
+		  if (current_time_delay < minimum_time_delay) { //update the minimum time delay
+		    minimum_time_delay = current_time_delay;
+		    //cout<<to_simple_string(minimum_time_delay)<<endl;
+		    leader = jj->second[jjj]; follower = ii->second[iii];
+		  }		  
+		}	      
+	      } //end of finding minimum distance
+	      //add the identified pair IFF the minimum found distance is not longer than the allower "3 minutes"
+	      if (minimum_time_delay <= lf_delay) {
+		Lf_pair newpair(bats_records[jj->first],bats_records[ii->first],leader,follower,bx->name);
+		vec_lfpairs.push_back(newpair);
 	      }
-	      else if (bt->box_knowledge[bx->name] == EXPERIENCED) { 
-		leaders.push_back(bt);
-		//take the first time that one of the leaders was recorded as the time of the LeadFollow event
-		if (p.is_not_a_date_time()) p = eventTime[bt->hexid]; 
-	      }
-	      else {cout<<"Sanity checks failed: A bat is neither naiive nor experienced"<<endl;}      
-	    }
-	    //register a lead follow event only if its in a chunk not longer than 10 minutes
-	    if (t <= minutes(10)) {
-	      Event lfevent(leaders,followers,p,bx,"LeadFollow");
-	      //all_leadfollows.push_back(lfevent);
-	      bx->events.push_back(lfevent);
-	      all_events.insert(lfevent);
-	      //insert as many times as there are leading following events (i.e. edges in the network)
-	      //for (unsigned hh=0; hh<leaders.size()*followers.size(); hh++)
-	      lf_chunk_sizes.push_back(t);
-	    }
+	    }	    
 	  }
-	  else {cout<<"Sanity checks failed: Number of experience plus naiive bats not the same as chunk size"<<endl;} 
 	  from = to; //move the 'from' pointer
-	  bx = &boxes[to->box_name]; //point the box pointer to the box of the current BatEntry
-	}
-	prev_instruction_time = to->TimeOfEntry;
-      }      
-      //print the sizes of the chunks in which all leading-following events were recorded
-      for (unsigned k=0; k<lf_chunk_sizes.size(); k++) 
-	  cout<<to_simple_string(lf_chunk_sizes[k])<<endl;
+	  bx = &boxes[to->box_name]; //point the box pointer to the box of the current BatEntry	
+	  prev_instruction_time = to->TimeOfEntry;	  
+	} //end if (to->TimeOfEntry - prev_instruction_time > time_chunk || to->box_name != bx->name)
+      } //end for (to=multibats.begin(); to != multibats.end(); to++)
       
+      
+      //print the activity in all boxes     
       for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end();i++) {      
-	pair<string,Box> p = *i;
-	//cout<<"BOX "<<p.second.name<<endl;
-	for (unsigned j=0; j<p.second.events.size(); j++) {
-	  //p.second.events[j].print();	
-	}
-      }
-    
+	 pair<string,Box> p = *i;
+	 cout<<"BOX "<<p.second.name<<endl;
+	 for (set<BatEntry,batEntryCompare>::iterator j=p.second.activity.begin(); j!=p.second.activity.end(); j++) {
+	   j->print();
+	 }
+      }     
       
+      /*print all matched pairs*/
+      for (unsigned i=0; i<vec_lfpairs.size(); i++)
+	vec_lfpairs[i].print();
       /*store the number of leading events that a leader has taken part of,
      regardless the number of following individuals*/
       map<string,unsigned> bats_lead_stats;
@@ -1834,7 +1814,7 @@ int main(int argc, char**argv) {
       }
       ceffile.close();
       igraph_matrix_destroy(&lf_adjmatrix);
-      cout<<"Total LEAD-FOLLOW events: "<<total_following_events<<endl;
+      //cout<<"Total LEAD-FOLLOW events: "<<total_following_events<<endl;
     
     
       /*create the .txt file to store lead-follow statistics*/    
