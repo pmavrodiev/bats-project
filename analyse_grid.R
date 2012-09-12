@@ -190,6 +190,16 @@ gg(36)
 gg(37)
 dev.off()
 
+tail_cdf = function(posixvector) {  
+  v_sorted = sort(posixvector)
+  v_unique = unique(v_sorted)
+  return_vector = rep(NA,length(v_unique))
+  for (i in 1:length(v_unique)) {
+    return_vector[i] = length(which(v_sorted > v_unique[i])) / length(v_sorted)
+  }
+  return (return_vector)
+}
+
 
 #read and plot the leading following statistics
 setwd("/home/pmavrodiev/Documents/bats/")
@@ -239,32 +249,82 @@ dev.off()
 #recored a leading-following event
 
 setwd("/home/pmavrodiev/Documents/bats/result_files/")
-#fileName = "lf_chunks_times_span.txt"
+fileName = "lf_chunks_times_span_2008.txt"
 #all lead-follow events were recorded in chunks of less than 10 minutes.
 #in this way phoney lf events from swarming are avoided.
-fileName = "lf_chunks_times_span_10mins.txt" 
+#fileName = "lf_chunks_times_span_10mins.txt" 
 chunks = read.table(fileName,colClasses="character")
 times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))
 min_limit = min(times)
 max_limit = max(times)
 time_breaks=seq(min_limit,max_limit,length=length(times))
 
-hist(times,breaks=time_breaks,freq=FALSE,plot=FALSE)
-mids=hist(times,breaks=time_breaks)$mids
-counts=hist(times,breaks=time_breaks)$counts
-counts =  counts / sum(counts)
-
-
+tcdf = tail_cdf(times)
 #CairoPDF("lf_chunk_time_span_distr.pdf",width=20,height=20)
-CairoPDF("lf_chunk_time_span_distr_10mins.pdf",width=20,height=20)
+CairoPDF("lf_chunk_time_span_distr_2008.pdf",width=20,height=20)
 par(mar=c(8,9,1,1),mgp=c(6,2,0),pty="s")
 plot(times,ylab="Minutes",xlab="Chunk Number",cex.axis=4,cex.lab=4,type="p",pch=4,cex=3)
-plot(time_breaks[which(counts!=0)],counts[counts!=0],type="p",pch=4,
-     xlab="Minutes",ylab="PDF",cex.lab=4,cex.axis=4,cex=3)
+plot(unique(sort(times)),tcdf,type="l",lwd=4,
+     xlab="Minutes",ylab="Tail CDF",cex.lab=4,cex.axis=4,cex=3)
+legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
 
-plot(time_breaks[which(counts!=0)],log(counts[counts!=0]),type="p",pch=4,
-     xlab="Minutes",ylab="log(PDF)",cex.lab=4,cex.axis=4,cex=3)
+plot(unique(sort(times)),log(tcdf),type="l",lwd=4,
+     xlab="Minutes",ylab="Tail CDF (log)",cex.lab=4,cex.axis=4,cex=3)
 dev.off()
+
+#plot the time differences between a leader and a follower for all pairs
+setwd("/home/pmavrodiev/Documents/bats/result_files/")
+#fileName = "lf_chunks_times_span.txt"
+#all lead-follow events were recorded in chunks of less than 10 minutes.
+#in this way phoney lf events from swarming are avoided.
+fileName = "time_diff_lf_2008.txt" 
+chunks = read.table(fileName,colClasses="character")
+times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))
+min_limit = min(times)
+max_limit = max(times)
+time_breaks=seq(min_limit,max_limit,length=length(times))
+
+
+tcdf = tail_cdf(times)
+CairoPDF("lf_time_diff_2008.pdf",width=20,height=20)
+par(mar=c(8,9,1,1),mgp=c(6,2,0),pty="s",yaxs="i",xaxs="i")
+plot(unique(sort(times)),tcdf,type="l",cex.axis=4,cex.lab=4,lwd=4,cex=3,xlab="Time difference (minutes)",ylab="Tail CDF")
+legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+#segments(as.POSIXct(strptime("00:05:04","%H:%M:%S")),0,as.POSIXct(strptime("00:05:04","%H:%M:%S")),tcdf[205],lwd=4,col="blue")
+#segments(as.POSIXct(strptime("00:00:00","%H:%M:%S")),tcdf[205],as.POSIXct(strptime("00:05:04","%H:%M:%S")),tcdf[205],lwd=4,col="blue")
+plot(unique(sort(times)),log(tcdf),type="l",cex.axis=4,cex.lab=4,lwd=4,cex=3,xlab="Time difference (minutes)",ylab="Tail CDF (log)")
+legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+
+dev.off()
+
+
+
+
+
+
+#plot the time differences between a leader and a follower for valid pairs only
+setwd("/home/pmavrodiev/Documents/bats/result_files/")
+fileName = "time_diff_valid_lf_3am_2008.txt" 
+chunks = read.table(fileName,colClasses="character")
+times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))
+min_limit = min(times)
+max_limit = max(times)
+time_breaks=seq(min_limit,max_limit,length=length(times))
+
+
+tcdf = tail_cdf(times)
+CairoPDF("lf_valid_time_diff_3am_2008.pdf",width=20,height=20)
+par(mar=c(8,9,1,1),mgp=c(6,2,0),pty="s",yaxs="i",xaxs="i")
+plot(unique(sort(times)),tcdf,type="l",cex.axis=4,cex.lab=4,lwd=4,cex=3,xlab="Time difference (minutes)",ylab="Tail CDF")
+legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+#segments(as.POSIXct(strptime("00:05:04","%H:%M:%S")),0,as.POSIXct(strptime("00:05:04","%H:%M:%S")),tcdf[205],lwd=4,col="blue")
+#segments(as.POSIXct(strptime("00:00:00","%H:%M:%S")),tcdf[205],as.POSIXct(strptime("00:05:04","%H:%M:%S")),tcdf[205],lwd=4,col="blue")
+plot(unique(sort(times)),log(tcdf),type="l",cex.axis=4,cex.lab=4,lwd=4,cex=3,xlab="Time difference (minutes)",ylab="Tail CDF (log)")
+legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+
+dev.off()
+
+
 
 
 

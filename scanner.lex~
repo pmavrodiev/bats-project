@@ -69,7 +69,7 @@ LETTER [a-fA-F]
   int digit;
   stringstream ss;
   pch = strtok(yytext,".");
-  //printf("%s\n",pch);
+  printf("%s\n",pch);
   ss<<pch; ss>>digit;
   lf_delay = minutes(digit);
 }
@@ -79,7 +79,7 @@ LETTER [a-fA-F]
   int digit;
   stringstream ss;
   pch = strtok(yytext,".");
-  //printf("%s\n",pch);
+  printf("%s\n",pch);
   ss<<pch; ss>>digit;
   time_chunk = minutes(digit);
 }
