@@ -223,6 +223,8 @@ extern char *yytext;
 #define TIMECHUNK 5
 #define LFDELAY 6
 #define OCCUPATIONDEADLINE 7
+#define YEAR 8
+#define EXPORTDATABASE 9
 
 #endif
 
@@ -331,9 +333,9 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 251 "scanner.lex"
+#line 398 "scanner.lex"
 
 
-#line 338 "standard.yy.h"
+#line 340 "standard.yy.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */

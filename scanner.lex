@@ -19,7 +19,7 @@ char *pch;
 pair<string,string> entry_pair;
 extern vector < pair<string,string> >  box_entries; 
 extern string Year; //the year of the analysis
-extern map<string,int> monaten; //maps months to their numerical value
+extern map<string,string> monaten; //maps months to their numerical value
 
 extern map<string,ptime> box_occupation; //maps box names to their dates of occupation
 					 //if a box has not been occupied, this date
@@ -31,13 +31,15 @@ extern vector<string> transponders_vector;
 extern time_duration time_chunk;
 extern time_duration lf_delay;
 extern string occupation_deadline;
+extern string Year;
+extern bool create_sqlitedb;
 int comment_caller;
 %}
 
 
 DIGIT [0-9]
 HEXDIGIT [a-fA-F0-9]
-LETTER [a-fA-F]
+LETTER [a-zA-Z]
 %x BOX_OCCUPATION
 %x COMMENT
 %x BATS
@@ -45,20 +47,42 @@ LETTER [a-fA-F]
 %x TIMECHUNK
 %x LFDELAY
 %x OCCUPATIONDEADLINE
+%x YEAR
+%x EXPORTDATABASE
 %%
-
+"begin{exportdatabase}"	BEGIN(EXPORTDATABASE);
+"begin{year}"	BEGIN(YEAR);
 "begin{occupation_deadline}"	BEGIN(OCCUPATIONDEADLINE);
 "begin{lf_delay}"	BEGIN(LFDELAY);
 "begin{time_chunk}"	BEGIN(TIMECHUNK);
 "begin{transponders}"	BEGIN(TRANSPONDERS);
 "begin{bats}"	BEGIN(BATS);
 "begin{box_occupation}"	BEGIN(BOX_OCCUPATION);
+<EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
+<YEAR>"end{year}" BEGIN(INITIAL);
 <BATS>"end{bats}" BEGIN(INITIAL);  
 <BOX_OCCUPATION>"end{box_occupation}" BEGIN(INITIAL);
 <TRANSPONDERS>"end{transponders}" BEGIN(INITIAL);
 <TIMECHUNK>"end{time_chunk}" BEGIN(INITIAL);
 <LFDELAY>"end{lf_delay}" BEGIN(INITIAL);
 <OCCUPATIONDEADLINE>"end{occupation_deadline}" BEGIN(INITIAL);
+
+<EXPORTDATABASE>{DIGIT}{1} {
+  string ss;
+  pch=strtok(yytext,".");
+  ss=pch;
+  if (ss == "0") create_sqlitedb=false;
+  else if (ss == "1") create_sqlitedb=true;
+  else {
+    printf("Error: Unrecognized value for exportdatabase in config file\n");
+    exit(1);
+  }
+}
+
+<YEAR>{DIGIT}{4} {
+  pch=strtok(yytext,".");
+  Year = pch;
+}
 
 <OCCUPATIONDEADLINE>{DIGIT}{6} {
   pch=strtok(yytext,".");
@@ -125,11 +149,11 @@ LETTER [a-fA-F]
 
 {DIGIT}{4}"-"{DIGIT}{2}"-"{DIGIT}{2} {
   string local_month, local_day, local_year;  
-  pch = strtok(yytext,".");
+  pch = strtok(yytext,"-");
   local_year = pch;
-  pch = strtok(NULL,".");
+  pch = strtok(NULL,"-");
   local_month = pch;
-  pch = strtok(NULL,".");
+  pch = strtok(NULL,"-");
   local_day = pch;  
   Date = local_year + local_month + local_day;//20020131
   //printf("Year: %s ",Date.c_str());  
@@ -150,19 +174,34 @@ LETTER [a-fA-F]
   //printf("Year: %s ",Date.c_str());
 }
 
-{DIGIT}{2}"-"{LETTER}{3} {
-  string local_month, local_day;
+{DIGIT}{1}"-"{LETTER}{3} {
+  string local_month, local_day="0";
   stringstream ss;
-  
-  pch = strtok(yytext,".");
-  local_day = pch;
-  pch = strtok(NULL,".");
+  pch = strtok(yytext,"-");
+  local_day += pch;
+  pch = strtok(NULL,"-");
   local_month = pch;
   transform(local_month.begin(), local_month.end(),local_month.begin(),::toupper);
   
   ss<<Year<<monaten[local_month]<<local_day;    
   Date = ss.str(); //20080131
-  printf("A date: %s ",yytext);
+  //printf("A date: %s ",Date.c_str());
+}
+
+
+{DIGIT}{2}"-"{LETTER}{3} {
+  string local_month, local_day;
+  stringstream ss;
+  
+  pch = strtok(yytext,"-");
+  local_day = pch;
+  pch = strtok(NULL,"-");
+  local_month = pch;
+  transform(local_month.begin(), local_month.end(),local_month.begin(),::toupper);
+  
+  ss<<Year<<monaten[local_month]<<local_day;    
+  Date = ss.str(); //20080131
+  //printf("A date: %s ",Date.c_str());
 }
 
 
@@ -179,7 +218,7 @@ LETTER [a-fA-F]
   //printf("A date: %s ",yytext);
 }
 
-{}
+
 
 
 <*>";;;" /* ignore this token */
@@ -187,16 +226,18 @@ LETTER [a-fA-F]
 <*>";" /* ignore this token */
 <*>"," /*ignore this token*/
 
-{DIGIT}{2}":"{DIGIT}{2}":"{DIGIT}{2}  {
+{DIGIT}{1}":"{DIGIT}{2}":"{DIGIT}{2}  {
+  Time="0";
   pch = strtok(yytext,":");
-  Time = pch;
+  Time = Time + pch;
   pch = strtok(NULL,":");
   Time += pch;
   pch = strtok(NULL,":");
   Time += pch;
 
   Date += "T" + Time; //20020131T235959
-
+  //printf("Time: %s\n",Date.c_str());
+  
   if (!HexId.empty()) { //Trovan Unique files
     //HexId should've been already scanned
     if (HexId == "000697B587") //this bat was mistakenly recorded in the transponders
@@ -208,7 +249,33 @@ LETTER [a-fA-F]
     Time = "";
     HexId = "";
   }
-  //printf("Time: %s ",yytext);
+
+}
+
+
+{DIGIT}{2}":"{DIGIT}{2}":"{DIGIT}{2}  {
+  pch = strtok(yytext,":");
+  Time = pch;
+  pch = strtok(NULL,":");
+  Time += pch;
+  pch = strtok(NULL,":");
+  Time += pch;
+
+  Date += "T" + Time; //20020131T235959
+  //printf("Time: %s\n",Date.c_str());
+  
+  if (!HexId.empty()) { //Trovan Unique files
+    //HexId should've been already scanned
+    if (HexId == "000697B587") //this bat was mistakenly recorded in the transponders
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+
 }
 
 {HEXDIGIT}{10} {
@@ -228,6 +295,86 @@ LETTER [a-fA-F]
   //printf("TID: %s\n",yytext);
 }
 
+{HEXDIGIT}{9} {//because the stupid .txt file for 2007 sometimes clipps the leading zeros :-(
+  HexId = "0";
+  HexId += yytext;
+  transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
+
+  if (!Date.empty()) { //non-Trovan unique files
+    if (HexId == "000697B587")
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+  //printf("TID: %s\n",yytext);
+}
+
+
+
+{HEXDIGIT}{8} {//because the stupid .txt file for 2007 sometimes clipps the leading zeros :-(
+  HexId = "00";
+  HexId += yytext;
+  transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
+
+  if (!Date.empty()) { //non-Trovan unique files
+    if (HexId == "000697B587")
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+  //printf("TID: %s\n",yytext);
+}
+
+
+
+{HEXDIGIT}{7} {//because the stupid .txt file for 2007 sometimes clipps the leading zeros :-(
+  HexId = "000";
+  HexId += yytext;
+  transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
+
+  if (!Date.empty()) { //non-Trovan unique files
+    if (HexId == "000697B587")
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+  //printf("TID: %s\n",yytext);
+}
+
+{HEXDIGIT}{6} {//because the stupid .txt file for 2007 sometimes clipps the leading zeros :-(
+  HexId = "0000";
+  HexId += yytext;
+  transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
+
+  if (!Date.empty()) { //non-Trovan unique files
+    if (HexId == "000697B587")
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+  //printf("TID: %s\n",yytext);
+}
+
+
+
+
+
 "OK" /* ignore this token */
 
 "Checksum error" {
@@ -244,9 +391,9 @@ BEGIN(COMMENT);
 <*>"*/" BEGIN(comment_caller);
 
 
-<*>. /* ignore this token in any start condition*/
+<*>. //{printf("%s",yytext);}/* ignore this token in any start condition*/
 
-<*>\n|\r|\r\n /*ignore this token in any start condition*/
+<*>\n|\r|\r\n //{printf("%s",yytext);}/*ignore this token in any start condition*/
 
 %%
 

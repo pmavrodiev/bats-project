@@ -1,6 +1,6 @@
 rm(list = ls())
 setwd("/home/pmavrodiev/Documents/bats")
-
+library(fields)
 library(png)
 library(Cairo)
 library(R.utils)
@@ -11,6 +11,7 @@ library(latticeExtra)
 library(grid)
 library(gdata)
 library(gplots)
+library(reldist)
 
   load("/mnt/ethz/home/Documents/bats/Grobs.RData")
   setwd("/home/pmavrodiev/Documents/bats/")
@@ -298,10 +299,6 @@ legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
 dev.off()
 
 
-
-
-
-
 #plot the time differences between a leader and a follower for valid pairs only
 setwd("/home/pmavrodiev/Documents/bats/result_files/")
 fileName = "time_diff_valid_lf_3am_2008.txt" 
@@ -325,7 +322,580 @@ legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
 dev.off()
 
 
+#plot all distributions of lf_chunks on 1 plot
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files")
+fileNamePatterns = "lf_chunk_time_span_distr_2008_" 
+files = list.files(getwd(),pattern=fileNamePatterns)
+time_data = matrix(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
+                   length(files),90) #90 >= length(tcdf) for the longest vector
 
+CairoPDF("lf_chunk_time_span_distr_2008.pdf",width=20,height=20)
+par(mar=c(8,9,4,1),mgp=c(6,2,0),pty="s",yaxs="i",xaxs="i")
+chunk_boundaries = c(2,3,5,7,9)
+y1 = NULL;y2 = NULL;y3 = NULL;y4 = NULL;
+x1 = NULL;x2 = NULL;x3 = NULL;x4 = NULL;
+
+for (j in 1:length(chunk_boundaries)) {
+  counter = 1
+  for (i in 1:length(files)) {
+    tokenized_str = strsplit(files[i],"\\D")
+    year = as.numeric(tokenized_str[[1]][26])
+    time_chunk = as.numeric(tokenized_str[[1]][27])
+    lf_delay = as.numeric(tokenized_str[[1]][28])
+    occupation_deadline = tokenized_str[[1]][29]
+    if (time_chunk == chunk_boundaries[j] && lf_delay==2) { #lf_delay is irrelevant
+      chunks = read.table(files[i],colClasses="character")
+      times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))     
+      tcdf = tail_cdf(times)      
+      if (counter == 1) {x1=times;y1 = tcdf}
+      else if (counter == 2){x2=times;y2 = tcdf}
+      else if (counter == 3){x3=times;y3 = tcdf}
+      else if (counter == 4) {x4=times;y4 = tcdf}
+      counter = counter + 1
+    }
+    #legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+  }
+  plot(unique(sort(x1)),y1,type="o",cex.axis=4,cex.lab=4,lwd=2,pch=6,
+       cex=2,xlab="Chunk length (minutes)",ylab="Tail CDF",ylim=c(0,1),
+       xlim=c(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
+              as.POSIXct(strptime("00:50:00","%H:%M:%S"))),
+       main=paste("Chunks boundary = ",chunk_boundaries[j]," minutes",sep=""),cex.main=4)
+  lines(unique(sort(x2)),y2,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=0,type="o")
+  lines(unique(sort(x3)),y3,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=3,type="o")
+  lines(unique(sort(x4)),y4,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=5,type="o")  
+  legend("topright",c(paste("2am / ",length(y1),sep=""),
+                      paste("3am / ",length(y2),sep=""),
+                      paste("5am / ",length(y3),sep=""),
+                      paste("8am / ",length(y4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
+}
+dev.off()
+
+
+
+#plot all distributions of time differences b/n leader and follower for all pairs on 1 plot
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files")
+fileNamePatterns = "lf_time_diff_2008_" 
+files = list.files(getwd(),pattern=fileNamePatterns)
+time_data = matrix(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
+                   length(files),90) #90 >= length(tcdf) for the longest vector
+
+CairoPDF("lf_time_diff_2008.pdf",width=20,height=20)
+par(mar=c(8,9,4,1),mgp=c(6,2,0),pty="s",yaxs="i",xaxs="i")
+chunk_boundaries = c(2,3,5,7,9)
+lf_delays = c(2)
+y1 = NULL;y2 = NULL;y3 = NULL;y4 = NULL;
+x1 = NULL;x2 = NULL;x3 = NULL;x4 = NULL;
+
+for (j in 1:length(chunk_boundaries)) {
+  for (k in 1:length(lf_delays)) {
+    counter = 1
+    for (i in 1:length(files)) {
+      tokenized_str = strsplit(files[i],"\\D")
+      year = as.numeric(tokenized_str[[1]][14])
+      time_chunk = as.numeric(tokenized_str[[1]][15])
+      lf_delay = as.numeric(tokenized_str[[1]][16])
+      occupation_deadline = tokenized_str[[1]][17]
+      if (time_chunk == chunk_boundaries[j] && lf_delay==lf_delays[k]) {
+        chunks = read.table(files[i],colClasses="character")
+        times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))     
+        tcdf = tail_cdf(times)      
+        if (counter == 1) {x1=times;y1 = tcdf}
+        else if (counter == 2){x2=times;y2 = tcdf}
+        else if (counter == 3){x3=times;y3 = tcdf}
+        else if (counter == 4) {x4=times;y4 = tcdf}
+        counter = counter + 1
+      }
+    #legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+    }
+    plot(unique(sort(x1)),y1,type="o",cex.axis=4,cex.lab=4,lwd=2,pch=6,
+         cex=2,xlab="Time difference (minutes)",ylab="Tail CDF",ylim=c(0,1),
+         xlim=c(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
+              as.POSIXct(strptime("00:50:00","%H:%M:%S"))),
+         main=paste("Chunks boundary = ",chunk_boundaries[j]," minutes",sep=""),cex.main=4)
+    lines(unique(sort(x2)),y2,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=0,type="o")
+    lines(unique(sort(x3)),y3,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=3,type="o")
+    lines(unique(sort(x4)),y4,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=5,type="o")  
+    legend("topright",c(paste("2am / ",length(y1),sep=""),
+                        paste("3am / ",length(y2),sep=""),
+                        paste("5am / ",length(y3),sep=""),
+                        paste("8am / ",length(y4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
+  }
+}
+dev.off()
+
+
+
+
+#plot all distributions of time differences b/n leader and follower for all valid pairs
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008")
+fileNamePatterns = "lf_valid_time_diff_2008_" 
+files = list.files(getwd(),pattern=fileNamePatterns)
+
+CairoPDF("lf_valid_time_diff_2008.pdf",width=20,height=20)
+par(mar=c(8,9,4,1),mgp=c(6,2,0),pty="s",yaxs="i",xaxs="i")
+chunk_boundaries = c(2,3,5,7,9)
+lf_delays = c(2,3,5,7,9)
+y1 = NULL;y2 = NULL;y3 = NULL;y4 = NULL;
+x1 = NULL;x2 = NULL;x3 = NULL;x4 = NULL;
+
+for (j in 1:length(chunk_boundaries)) {
+  for (k in 1:length(lf_delays)) {
+    counter = 1
+    for (i in 1:length(files)) {
+      tokenized_str = strsplit(files[i],"\\D")
+      year = as.numeric(tokenized_str[[1]][20])
+      time_chunk = as.numeric(tokenized_str[[1]][21])
+      lf_delay = as.numeric(tokenized_str[[1]][22])
+      occupation_deadline = tokenized_str[[1]][23]
+      if (time_chunk == chunk_boundaries[j] && lf_delay==lf_delays[k]) {
+        chunks = read.table(files[i],colClasses="character")
+        times = as.POSIXct(strptime(chunks[,1], "%H:%M:%S"))     
+        tcdf = tail_cdf(times)      
+        if (counter == 1) {x1=times;y1 = tcdf}
+        else if (counter == 2){x2=times;y2 = tcdf}
+        else if (counter == 3){x3=times;y3 = tcdf}
+        else if (counter == 4) {x4=times;y4 = tcdf}
+        counter = counter + 1
+      }
+      #legend("topright",paste("Sample Size=",length(times),sep=""),cex=3)
+    }
+    plot(unique(sort(x1)),y1,type="o",cex.axis=4,cex.lab=4,lwd=2,pch=6,
+         cex=2,xlab="Time difference (minutes)",ylab="Tail CDF",ylim=c(0,1),
+         xlim=c(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
+                as.POSIXct(strptime(paste("00:0",lf_delays[k],":00",sep=""),"%H:%M:%S"))),
+         main=paste("Chunks boundary = ",chunk_boundaries[j]," minutes",
+                    " / LF dist. = ",lf_delays[k]," minutes",sep=""),cex.main=4)
+    lines(unique(sort(x2)),y2,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=0,type="o")
+    lines(unique(sort(x3)),y3,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=3,type="o")
+    lines(unique(sort(x4)),y4,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=5,type="o")  
+    legend("topright",c(paste("2am / ",length(y1),sep=""),
+                        paste("3am / ",length(y2),sep=""),
+                        paste("5am / ",length(y3),sep=""),
+                        paste("8am / ",length(y4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
+  }
+}
+dev.off()
+
+#plot the distributions of the final page ranks for all parameter combinations
+CairoPDF(file="final_pageranks.pdf",width=40,height=20)
+par(mar=c(22,9,5,1),mgp=c(6,1,0),yaxs="i",xaxs="i")
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008/")
+fileNamePatterns = "lead_follow_fpr_2008_2_\\d_020000"
+files = list.files(getwd(),pattern=fileNamePatterns)
+data = read.table(files[1],fill=TRUE,colClasses = "character")
+data.sorted = data[order(data[,2],decreasing=TRUE),]
+ginis = NULL
+col_names_vec = NULL
+for (i in 1:length(files)) {  
+  tokenized_str = strsplit(files[i],"\\D")
+  year = as.numeric(tokenized_str[[1]][17])
+  time_chunk = as.numeric(tokenized_str[[1]][18])
+  lf_delay = as.numeric(tokenized_str[[1]][19])
+  occupation_deadline = tokenized_str[[1]][20]
+  col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+  col_names_vec = c(col_names_vec,col_name)
+  data = read.table(files[i],fill=TRUE,colClasses = "character")
+  data.sorted = data[order(data[,2],decreasing=TRUE),] 
+  barplot(500*as.numeric(data.sorted[1:(nrow(data.sorted)-1),2]),
+          names.arg=data.sorted[1:(nrow(data.sorted)-1),1],
+          beside=TRUE,las=2,cex.axis=4,cex.names=4,ylab="Page Rank",
+          cex.lab=4,cex.main=4,
+          main=paste("Chunks boundary = ",time_chunk," minutes / LF dist. = ",
+                     lf_delay," minutes / Occupation deadline = ",
+                     occupation_deadline,sep=""))
+  ginis=c(ginis,gini(as.numeric(data.sorted[1:(nrow(data.sorted)-1),2])))
+}
+plot(seq(1:length(files)),
+     ginis,xaxt="n",yaxs="i",xaxs="i",xlab="",ylab="Gini coefficient",
+     type="o",pch=4, cex.lab=4,cex.main=4,cex.axis=4,lwd=3,cex=3)
+axis(1,at=seq(1:length(files)),
+     labels=col_names_vec,las=2,cex.axis=3)
+
+dev.off()
+
+
+#plot individual page ranks over all parameter configurations
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files")
+fileNamePatterns = "lead_follow_fpr_2008_"
+files = list.files(getwd(),pattern=fileNamePatterns)
+col_names = NULL
+
+#first loop through the files to get all parameter combinations
+for (i in 1:length(files)) {
+  tokenized_str = strsplit(files[i],"\\D")
+  year = as.numeric(tokenized_str[[1]][17])
+  time_chunk = as.numeric(tokenized_str[[1]][18])
+  lf_delay = as.numeric(tokenized_str[[1]][19])
+  occupation_deadline = tokenized_str[[1]][20]
+  col_names = c(col_names,
+                paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep=""))
+}
+data = read.table(files[1],fill=TRUE,colClasses = "character")
+data.sorted = data[order(data[,2],decreasing=TRUE),]
+row_names = data.sorted[1:(nrow(data.sorted)-1),1]
+dataframe = matrix(NA,nrow=length(row_names),ncol=length(col_names))
+rownames(dataframe)=row_names
+colnames(dataframe)=col_names
+
+for (i in 1:length(files)) {  
+  tokenized_str = strsplit(files[i],"\\D")
+  year = as.numeric(tokenized_str[[1]][17])
+  time_chunk = as.numeric(tokenized_str[[1]][18])
+  lf_delay = as.numeric(tokenized_str[[1]][19])
+  occupation_deadline = tokenized_str[[1]][20]
+  col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+  data = read.table(files[i],fill=TRUE,colClasses = "character")
+  data.sorted = data[order(data[,2],decreasing=TRUE),]
+  dataframe[data.sorted[1:(nrow(data.sorted)-1),1],col_name] = 
+    as.numeric(data.sorted[1:(nrow(data.sorted)-1),2])   
+}
+
+
+
+CairoPDF(file="final_pageranks_over_time.pdf",width=40,height=30)
+par(mar=c(22,11,5,10),mgp=c(6,1,0),yaxs="i",xaxs="i")
+#start preparing the mega cool plot
+nbats = 35#nrow(data)-1
+ylim_vec = c(0,nbats)
+rownames_last4 = substr(row_names[1:35],7,10)
+
+#calculate the rank of each bat over all parameter combinations
+occupationDeadline = "2am"
+select_pattern_2am=seq(1,length(col_names),by=4)
+select_pattern_3am=seq(2,length(col_names),by=4)
+select_pattern_5am=seq(3,length(col_names),by=4)
+select_pattern_8am=seq(4,length(col_names),by=4)
+dataframe_ranks = matrix(NA,nrow=nbats,
+                         ncol=length(select_pattern_2am))
+rownames(dataframe_ranks)=row_names[1:nbats]
+colnames(dataframe_ranks)=col_names[select_pattern_2am]
+
+#2am
+for (j in 1:length(select_pattern_2am)) {
+  dataframe_ranks[,j] = rank(-dataframe[1:nbats,select_pattern_2am[j]],
+                             ties.method="first")
+}
+#plot the ranks of the bats now
+for (j in 1:nbats) {
+  if (j==1) { #set up the plot
+    plot(seq(1:length(select_pattern_2am)),dataframe_ranks[j,]-0.5,
+         xaxt="n",yaxs="i",xaxs="i",xlab="",yaxt="n",ylab="",
+         ylim=c(0,nbats),type="o",pch=4,col=j,
+         cex.axis=4,cex.lab=4,lwd=4,cex.main=4,
+         main=paste("Occupation deadline = ",occupationDeadline,sep=""))
+    axis(1,at=seq(1:length(select_pattern_2am)),labels=col_names[select_pattern_2am],las=2,cex.axis=4)
+    axis(2,at=seq(1:nbats),labels=rownames_last4,las=2,padj=1.2,cex.axis=4)
+    axis(4,at=seq(1:nbats),las=2,padj=1.2,cex.axis=4)
+    mtext("Rank",side=4,line=8,cex=4)
+    #show the lines now
+    for (j in 1:nbats)
+      abline(h=j,col="grey")
+  }
+  else {
+    lines(seq(1:length(select_pattern_2am)),dataframe_ranks[j,]-0.5,
+          type="o",pch=4,col=j,lwd=4,cex=3)
+  }
+}
+
+#3am
+occupationDeadline = "3am"
+for (j in 1:length(select_pattern_3am)) {
+  dataframe_ranks[,j] = rank(-dataframe[1:nbats,select_pattern_3am[j]],
+                             ties.method="first")
+}
+#plot the ranks of the bats now
+for (j in 1:nbats) {
+  if (j==1) { #set up the plot
+    plot(seq(1:length(select_pattern_3am)),dataframe_ranks[j,]-0.5,
+         xaxt="n",yaxs="i",xaxs="i",xlab="",yaxt="n",ylab="",
+         ylim=c(0,nbats),type="o",pch=4,col=j,
+         cex.axis=4,cex.lab=4,lwd=4,cex.main=4,
+         main=paste("Occupation deadline = ",occupationDeadline,sep=""))
+    axis(1,at=seq(1:length(select_pattern_3am)),labels=col_names[select_pattern_3am],las=2,cex.axis=4)
+    axis(2,at=seq(1:nbats),labels=rownames_last4,las=2,padj=1.2,cex.axis=4)
+    axis(4,at=seq(1:nbats),las=2,padj=1.2,cex.axis=4)
+    mtext("Rank",side=4,line=8,cex=4)
+    #show the lines now
+    for (j in 1:nbats)
+      abline(h=j,col="grey")
+  }
+  else {
+    lines(seq(1:length(select_pattern_3am)),dataframe_ranks[j,]-0.5,
+          type="o",pch=4,col=j,lwd=4,cex=3)
+  }
+}
+
+#5am
+occupationDeadline = "5am"
+for (j in 1:length(select_pattern_5am)) {
+  dataframe_ranks[,j] = rank(-dataframe[1:nbats,select_pattern_5am[j]],
+                             ties.method="first")
+}
+#plot the ranks of the bats now
+for (j in 1:nbats) {
+  if (j==1) { #set up the plot
+    plot(seq(1:length(select_pattern_5am)),dataframe_ranks[j,]-0.5,
+         xaxt="n",yaxs="i",xaxs="i",xlab="",yaxt="n",ylab="",
+         ylim=c(0,nbats),type="o",pch=4,col=j,
+         cex.axis=4,cex.lab=4,lwd=4,cex.main=4,
+         main=paste("Occupation deadline = ",occupationDeadline,sep=""))
+    axis(1,at=seq(1:length(select_pattern_5am)),labels=col_names[select_pattern_5am],las=2,cex.axis=4)
+    axis(2,at=seq(1:nbats),labels=rownames_last4,las=2,padj=1.2,cex.axis=4)
+    axis(4,at=seq(1:nbats),las=2,padj=1.2,cex.axis=4)
+    mtext("Rank",side=4,line=8,cex=4)
+    #show the lines now
+    for (j in 1:nbats)
+      abline(h=j,col="grey")
+  }
+  else {
+    lines(seq(1:length(select_pattern_5am)),dataframe_ranks[j,]-0.5,
+          type="o",pch=4,col=j,lwd=4,cex=3)
+  }
+}
+
+#8am
+occupationDeadline = "8am"
+for (j in 1:length(select_pattern_8am)) {
+  dataframe_ranks[,j] = rank(-dataframe[1:nbats,select_pattern_8am[j]],
+                             ties.method="first")
+}
+#plot the ranks of the bats now
+for (j in 1:nbats) {
+  if (j==1) { #set up the plot
+    plot(seq(1:length(select_pattern_8am)),dataframe_ranks[j,]-0.5,
+         xaxt="n",yaxs="i",xaxs="i",xlab="",yaxt="n",ylab="",
+         ylim=c(0,nbats),type="o",pch=4,col=j,
+         cex.axis=4,cex.lab=4,lwd=4,cex.main=4,
+         main=paste("Occupation deadline = ",occupationDeadline,sep=""))
+    axis(1,at=seq(1:length(select_pattern_8am)),labels=col_names[select_pattern_8am],las=2,cex.axis=4)
+    axis(2,at=seq(1:nbats),labels=rownames_last4,las=2,padj=1.2,cex.axis=4)
+    axis(4,at=seq(1:nbats),las=2,padj=1.2,cex.axis=4)
+    mtext("Rank",side=4,line=8,cex=4)
+    #show the lines now
+    for (j in 1:nbats)
+      abline(h=j,col="grey")
+  }
+  else {
+    lines(seq(1:length(select_pattern_8am)),dataframe_ranks[j,]-0.5,
+          type="o",pch=4,col=j,lwd=4,cex=3)
+  }
+}
+
+dev.off()
+
+
+
+#plot heatmaps of the final page ranks for all parameter combinations
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008/")
+CairoPDF(file="final_pageranks_heatmaps.pdf",width=40,height=20)
+par(mar=c(12,20,10,1),mgp=c(6,2,0),yaxs="i",xaxs="i",mfrow=c(2,3))
+nf = layout(matrix(c(1,2,3,4,5,6),2,3,byrow=TRUE),TRUE)
+occ_deadline = c("020000","030000","050000","080000")
+lf_delay_vec = c("2","3","5","7","9")
+for (jj in occ_deadline) {
+  for (j in lf_delay_vec) {
+    fileNamePatterns = paste("lead_follow_fpr_2008_\\d_",j,"_",jj,sep="")
+    files = list.files(getwd(),pattern=fileNamePatterns)
+    data = read.table(files[1],fill=TRUE,colClasses = "character")
+    data.sorted = data[order(data[,2],decreasing=TRUE),]
+    data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+    z = matrix(0,length(files),(nrow(data.sorted.nonzero)-1))
+    nsample_data = matrix(0,1,length(files))
+    col_names_vec = NULL
+    for (i in 1:length(files)) {  
+      tokenized_str = strsplit(files[i],"\\D")
+      year = as.numeric(tokenized_str[[1]][17])
+      time_chunk = as.numeric(tokenized_str[[1]][18])
+      lf_delay = as.numeric(tokenized_str[[1]][19])
+      occupation_deadline = tokenized_str[[1]][20]
+      col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+      col_names_vec = c(col_names_vec,col_name)
+      data = read.table(files[i],fill=TRUE,colClasses = "character")
+      data.sorted = data[order(data[,2],decreasing=TRUE),]
+      data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+      col_diff = (nrow(data.sorted.nonzero)-1)-ncol(z)
+      if (col_diff>0) {
+        z = cbind(z,matrix(NA,nrow(z),col_diff))
+      }      
+      ranks_i = 500*as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2])  
+      z[i,]=ranks_i
+      nsample_data[1,i] = data.sorted.nonzero[nrow(data.sorted.nonzero),1]
+    }
+    ramp = colorRamp(c("darkblue","blue","green","yellow"),bias=2)
+    #ramp = colorRamp(c("black","grey","white"),bias=0.7)    
+    cols = rgb(ramp(seq(0,1,length=128)),max=255)
+    image(z,yaxt="n",xaxt="n",col=cols,breaks=seq(0,140,length.out=129),oldstyle=TRUE,
+          xlab="Box activity limit",cex.lab=4)    
+    title(main=paste("LF delay = ",lf_delay," minutes",sep=""),cex.main=3,
+          line=5)
+    grid(nx=5,ny=0)
+    box()
+    axis(1,seq(0,1,length=nrow(z)),lab=c(2,3,5,7,9),las=1,cex.lab=3,cex.axis=3)
+    axis(2,seq(0,1,length=(nrow(data.sorted.nonzero)-1)),
+         lab=data.sorted[1:(nrow(data.sorted.nonzero)-1),1],las=2,
+         cex.lab=2.2,cex.axis=2.2)
+    par(mar=c(12,20,10,1),mgp=c(6,1,0))
+    axis(3,seq(0,1,length=nrow(z)),lab=nsample_data,las=1,cex.axis=3)
+    par(mar=c(12,20,10,1),mgp=c(6,2,0))
+    if (j == "9") {    
+      par(mar=c(15,5,10,88),ylbias=0,yaxs="i")
+      s = seq(1,128)
+      plot(rep(50,128),s,cex=8,col=cols[s],pch=15,xlim=c(40,60),cex.lab=4,cex.axis=4,
+           xaxt="n",yaxt="n",xlab="",ylab="",bty="n")
+      axis(4,at=seq(1,128,length=8),lab=seq(0,140,length=8),cex.axis=4,las=2)
+      par(mar=c(12,20,10,1),mgp=c(8,4,0))
+    }  
+  }    
+}
+dev.off()
+
+
+#plot heatmaps of the final page ranks for all parameter combinations
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2007/")
+CairoPDF(file="final_pageranks_heatmaps.pdf",width=40,height=20)
+par(mar=c(12,20,10,1),mgp=c(6,2,0),yaxs="i",xaxs="i",mfrow=c(2,3))
+nf = layout(matrix(c(1,2,3,4,5,6),2,3,byrow=TRUE),TRUE)
+occ_deadline = c("020000","030000","050000","080000")
+lf_delay_vec = c("2","3","5","7","9")
+for (jj in occ_deadline) {
+  for (j in lf_delay_vec) {
+    fileNamePatterns = paste("lead_follow_fpr_2007_\\d_",j,"_",jj,sep="")
+    files = list.files(getwd(),pattern=fileNamePatterns)
+    data = read.table(files[1],fill=TRUE,colClasses = "character")
+    data.sorted = data[order(data[,2],decreasing=TRUE),]
+    data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+    z = matrix(0,length(files),(nrow(data.sorted.nonzero)-1))
+    nsample_data = matrix(0,1,length(files))
+    col_names_vec = NULL
+    for (i in 1:length(files)) {  
+      tokenized_str = strsplit(files[i],"\\D")
+      year = as.numeric(tokenized_str[[1]][17])
+      time_chunk = as.numeric(tokenized_str[[1]][18])
+      lf_delay = as.numeric(tokenized_str[[1]][19])
+      occupation_deadline = tokenized_str[[1]][20]
+      col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+      col_names_vec = c(col_names_vec,col_name)
+      data = read.table(files[i],fill=TRUE,colClasses = "character")
+      data.sorted = data[order(data[,2],decreasing=TRUE),]
+      data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+      col_diff = (nrow(data.sorted.nonzero)-1)-ncol(z)
+      if (col_diff>0) {
+        z = cbind(z,matrix(NA,nrow(z),col_diff))
+      }      
+      ranks_i = 500*as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2])  
+      z[i,]=ranks_i
+      nsample_data[1,i] = data.sorted.nonzero[nrow(data.sorted.nonzero),1]
+    }
+    ramp = colorRamp(c("darkblue","blue","green","yellow"),bias=2)
+    #ramp = colorRamp(c("black","grey","white"),bias=0.7)    
+    cols = rgb(ramp(seq(0,1,length=128)),max=255)
+    image(z,yaxt="n",xaxt="n",col=cols,breaks=seq(0,140,length.out=129),oldstyle=TRUE,
+          xlab="Box activity limit",cex.lab=4)    
+    title(main=paste("LF delay = ",lf_delay," minutes",sep=""),cex.main=3,
+          line=5)
+    grid(nx=5,ny=0)
+    box()
+    axis(1,seq(0,1,length=nrow(z)),lab=c(2,3,5,7,9),las=1,cex.lab=3,cex.axis=3)
+    axis(2,seq(0,1,length=(nrow(data.sorted.nonzero)-1)),
+         lab=data.sorted[1:(nrow(data.sorted.nonzero)-1),1],las=2,
+         cex.lab=2.2,cex.axis=2.2)
+    par(mar=c(12,20,10,1),mgp=c(6,1,0))
+    axis(3,seq(0,1,length=nrow(z)),lab=nsample_data,las=1,cex.axis=3)
+    par(mar=c(12,20,10,1),mgp=c(6,2,0))
+    if (j == "9") {    
+      par(mar=c(15,5,10,88),ylbias=0,yaxs="i")
+      s = seq(1,128)
+      plot(rep(50,128),s,cex=8,col=cols[s],pch=15,xlim=c(40,60),cex.lab=4,cex.axis=4,
+           xaxt="n",yaxt="n",xlab="",ylab="",bty="n")
+      axis(4,at=seq(1,128,length=8),lab=seq(0,140,length=8),cex.axis=4,las=2)
+      par(mar=c(12,20,10,1),mgp=c(8,4,0))
+    }  
+  }    
+}
+dev.off()
+
+
+
+#plot the distributions of the final page ranks for all parameter combinations
+CairoPDF(file="final_pageranks.pdf",width=40,height=20)
+par(mar=c(22,9,5,1),mgp=c(6,1,0),yaxs="i",xaxs="i")
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008/")
+fileNamePatterns = "lead_follow_fpr_2008"
+files = list.files(getwd(),pattern=fileNamePatterns)
+data = read.table(files[1],fill=TRUE,colClasses = "character")
+data.sorted = data[order(data[,2],decreasing=TRUE),]
+data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+ginis = NULL
+col_names_vec = NULL
+for (i in 1:length(files)) {  
+  tokenized_str = strsplit(files[i],"\\D")
+  year = as.numeric(tokenized_str[[1]][17])
+  time_chunk = as.numeric(tokenized_str[[1]][18])
+  lf_delay = as.numeric(tokenized_str[[1]][19])
+  occupation_deadline = tokenized_str[[1]][20]
+  col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+  col_names_vec = c(col_names_vec,col_name)
+  data = read.table(files[i],fill=TRUE,colClasses = "character")
+  data.sorted = data[order(data[,2],decreasing=TRUE),] 
+  data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+  
+  barplot(500*as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2]),
+          names.arg=data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),1],
+          beside=TRUE,las=2,cex.axis=4,cex.names=4,ylab="Page Rank",
+          cex.lab=4,cex.main=4,
+          main=paste("Chunks boundary = ",time_chunk," minutes / LF dist. = ",
+                     lf_delay," minutes / Occupation deadline = ",
+                     occupation_deadline,sep=""))
+  ginis=c(ginis,gini(as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2])))
+}
+plot(seq(1:length(files)),
+     ginis,xaxt="n",yaxs="i",xaxs="i",xlab="",ylab="Gini coefficient",
+     type="o",pch=4, cex.lab=4,cex.main=4,cex.axis=4,lwd=3,cex=3)
+axis(1,at=seq(1:length(files)),
+     labels=col_names_vec,las=2,cex.axis=3)
+
+dev.off()
+
+
+#plot the distributions of the final page ranks for all parameter combinations
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2007/")
+CairoPDF(file="final_pageranks.pdf",width=40,height=20)
+par(mar=c(22,9,5,1),mgp=c(6,1,0),yaxs="i",xaxs="i")
+fileNamePatterns = "lead_follow_fpr_2007"
+files = list.files(getwd(),pattern=fileNamePatterns)
+data = read.table(files[1],fill=TRUE,colClasses = "character")
+data.sorted = data[order(data[,2],decreasing=TRUE),]
+data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+ginis = NULL
+col_names_vec = NULL
+for (i in 1:length(files)) {  
+  tokenized_str = strsplit(files[i],"\\D")
+  year = as.numeric(tokenized_str[[1]][17])
+  time_chunk = as.numeric(tokenized_str[[1]][18])
+  lf_delay = as.numeric(tokenized_str[[1]][19])
+  occupation_deadline = tokenized_str[[1]][20]
+  col_name = paste(time_chunk,"/",lf_delay,"/",occupation_deadline,sep="")
+  col_names_vec = c(col_names_vec,col_name)
+  data = read.table(files[i],fill=TRUE,colClasses = "character")
+  data.sorted = data[order(data[,2],decreasing=TRUE),] 
+  data.sorted.nonzero=data.sorted[data.sorted[,3]!=0,]
+  
+  barplot(500*as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2]),
+          names.arg=data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),1],
+          beside=TRUE,las=2,cex.axis=4,cex.names=4,ylab="Page Rank",
+          cex.lab=4,cex.main=4,
+          main=paste("Chunks boundary = ",time_chunk," minutes / LF dist. = ",
+                     lf_delay," minutes / Occupation deadline = ",
+                     occupation_deadline,sep=""))
+  ginis=c(ginis,gini(as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2])))
+}
+plot(seq(1:length(files)),
+     ginis,xaxt="n",yaxs="i",xaxs="i",xlab="",ylab="Gini coefficient",
+     type="o",pch=4, cex.lab=4,cex.main=4,cex.axis=4,lwd=3,cex=3)
+axis(1,at=seq(1:length(files)),
+     labels=col_names_vec,las=2,cex.axis=3)
+
+dev.off()
 
 
 
