@@ -1,0 +1,5 @@
+InfoKey: Creator
+InfoValue: cairo 1.10.2 (http://cairographics.org)
+InfoKey: Producer
+InfoValue: cairo 1.10.2 (http://cairographics.org)
+NumberOfPages: 101

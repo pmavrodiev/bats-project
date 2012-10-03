@@ -759,7 +759,7 @@ extern map<string,ptime> box_occupation; //maps box names to their dates of occu
 string box_name, box_date;
 extern vector<string> bats_vector;
 extern vector<string> transponders_vector;
-extern time_duration time_chunk;
+extern time_duration knowledge_delay;
 extern time_duration lf_delay;
 extern string occupation_deadline;
 extern string Year;
@@ -1187,7 +1187,7 @@ YY_RULE_SETUP
   pch = strtok(yytext,".");
   //printf("%s\n",pch);
   ss<<pch; ss>>digit;
-  time_chunk = minutes(digit);
+  knowledge_delay = minutes(digit);
 }
 	YY_BREAK
 case 22:

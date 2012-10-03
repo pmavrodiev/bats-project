@@ -500,8 +500,8 @@ for (i in 1:length(files)) {
           names.arg=data.sorted[1:(nrow(data.sorted)-1),1],
           beside=TRUE,las=2,cex.axis=4,cex.names=4,ylab="Page Rank",
           cex.lab=4,cex.main=4,
-          main=paste("Chunks boundary = ",time_chunk," minutes / LF dist. = ",
-                     lf_delay," minutes / Occupation deadline = ",
+          main=paste("box_delay = ",time_chunk," minutes / lf delay = ",
+                     lf_delay," minutes / occupation_deadline = ",
                      occupation_deadline,sep=""))
   ginis=c(ginis,gini(as.numeric(data.sorted[1:(nrow(data.sorted)-1),2])))
 }
@@ -817,9 +817,9 @@ dev.off()
 
 
 #plot the distributions of the final page ranks for all parameter combinations
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008/")
 CairoPDF(file="final_pageranks.pdf",width=40,height=20)
 par(mar=c(22,9,5,1),mgp=c(6,1,0),yaxs="i",xaxs="i")
-setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008/")
 fileNamePatterns = "lead_follow_fpr_2008"
 files = list.files(getwd(),pattern=fileNamePatterns)
 data = read.table(files[1],fill=TRUE,colClasses = "character")
@@ -843,8 +843,8 @@ for (i in 1:length(files)) {
           names.arg=data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),1],
           beside=TRUE,las=2,cex.axis=4,cex.names=4,ylab="Page Rank",
           cex.lab=4,cex.main=4,
-          main=paste("Chunks boundary = ",time_chunk," minutes / LF dist. = ",
-                     lf_delay," minutes / Occupation deadline = ",
+          main=paste("box_delay = ",time_chunk," minutes / lf_delay = ",
+                     lf_delay," minutes / occupation_deadline = ",
                      occupation_deadline,sep=""))
   ginis=c(ginis,gini(as.numeric(data.sorted.nonzero[1:(nrow(data.sorted.nonzero)-1),2])))
 }

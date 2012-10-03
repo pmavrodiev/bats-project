@@ -180,28 +180,54 @@ public:
       cout<<to_simple_string(m.first)<<" "<<m.second->name<<endl;
     }
   }
+  bool operator== (Bat &B1, Bat &B2) {return (B1.hexid == B2.hexid);}  
 };
 
 class Lf_pair {
 public:
-  Bat leader;
-  Bat follower;
+  Bat b1;
+  Bat b2;
+  short leader; //0 if b1 is the leader, 1 if b2 is the leader, -1 uninitialized
   string box_name;
-  ptime tleader;
-  ptime tfollower;
-  bool valid; //valid only if abs(tleader-tfollower) <= "3-minute" rule
-  Lf_pair(Bat l, Bat f, ptime tl, ptime tf,string bname) {
-    leader = l; follower = f; tleader = tl; tfollower = tf; box_name = bname;
-    valid = false;
+  ptime tb1;
+  ptime tb2;
+  bool valid; //valid only if abs(tleader-tfollower) <= "3-minute" rule. true by default
+  Lf_pair(Bat B1, Bat B2) {
+    b1 = B1; b2 = B2;    
   }
-  Lf_pair(Bat l, Bat f, ptime tl, ptime tf,string bname, bool v) {
-    leader = l; follower = f; tleader = tl; tfollower = tf; box_name = bname;
-    valid = v;
+  Lf_pair(Bat B1, Bat B2, ptime tB1, ptime tB2,string bname) {
+    b1 = B1; b2 = B2; tb1 = tB1; tb2 = tB2; box_name = bname;
+    valid = true; leader = -1;
+  }
+  Lf_pair(Bat B1, Bat B2, ptime tB1, ptime tB2,string bname, bool v) {
+    b1 = B1; b2 = B2; tb1 = tB1; tb2 = tB2; box_name = bname;
+    valid = true; leader = -1; valid = v;
+  }
+  bool equals(Lf_pair &other) {
+    if ((other.b1.hexid == b1.hexid && other.b2.hexid == b2.hexid) ||
+       (other.b1.hexid == b2.hexid && other.b2.hexid == b1.hexid))
+	return true;
+    return false;
+  }
+  string getLeaderId() {
+    if (leader == 0) return b1.hexid;
+    else if (leader == 1) return b2.hexid;
+    else return "Bad LF Pair";    
+  }
+  string getFollowerId() {
+    if (leader == 0) return b2.hexid;
+    else if (leader == 1) return b1.hexid;
+    else return "Bad LF Pair";    
   }
 
   void print() {
-    cout<<follower.hexid<<" {"<<to_simple_string(tfollower)<<"} --> ";
-    cout<<leader.hexid<<" {"<<to_simple_string(tleader)<<"}\t";
+    string follower_hexid = (leader == 0) ? b2.hexid : b1.hexid;
+    string leader_hexid = (leader == 0) ? b1.hexid : b2.hexid;
+    ptime tfollower = (leader == 0) ? tb2 : tb1;
+    ptime tleader = (leader == 0) ? tb1 : tb2;    
+    
+    cout<<follower_hexid<<" {"<<to_simple_string(tfollower)<<"} --> ";
+    cout<<leader_hexid<<" {"<<to_simple_string(tleader)<<"}\t";
     cout<<box_name<<endl;
   }  
 };
@@ -217,7 +243,7 @@ map<string,string> monaten; //maps month names to month numbers
 string Year;
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
-time_duration time_chunk;// = minutes(3);
+time_duration knowledge_delay;// = minutes(3);
 //maximum allowed delay between a leader and a follower
 time_duration lf_delay;// = minutes(5);
 //min. time interval for flying between two boxes
@@ -696,6 +722,17 @@ string lf_chunk_time_span_dist,lf_time_diff,lf_valid_time_diff;
 /* ==================================================================== */
 
 /* =========================== GLOBAL FUNCTIONS ======================= */
+
+/*searches in a vector of lf_events for a particular event*/
+bool lf_exists(vector<Lf_pair> *vec_ptr, Lf_pair *element) {
+  for (unsigned i=0; i<vec_ptr->size(); i++) {
+    if ((*vec_ptr)[i].equals(*element))
+      return true;      
+  }
+  return false;
+}
+
+
 /* Given "number" find a bin for it in a 128-length array.
    Which array is taken for the binning depends on the flag
    argument. All possible arrays are defined within the function.
@@ -1277,14 +1314,14 @@ void processDataDirectory(string dir_name,string box_name) {
 int main(int argc, char**argv) {
   argv++;argc--;
 
-  if (argc < 5 || argc >=6) {
+  if (argc < 2 || argc >=3) {
     cout<<"Version: "<<version<<endl<<endl;
     cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
     cout<<"<dir>\t full path to the directory containing transponder data files"<<endl;
     cout<<"<config_file>\t full path to the configuration file"<<endl<<endl;
     return 0;
   }
-  if (argc == 5) {  
+  if (argc == 2) {  
     /*init the months map*/
     monaten["JAN"] = "01";monaten["FEB"] = "02";
     monaten["MAR"] = "03";monaten["APR"] = "04";
@@ -1305,35 +1342,36 @@ int main(int argc, char**argv) {
     nbats = bats_vector.size();
     ntransponders = transponders_vector.size();
     /*remove this later (1)*/
-    stringstream foo,moo,goo; foo<<argv[2];moo<<argv[3];goo<<argv[4];
-    int tt,gg; foo>>tt;moo>>gg; time_chunk = minutes(tt); lf_delay = minutes(gg);
-    occupation_deadline=goo.str();
+    //stringstream foo,moo,goo; foo<<argv[2];moo<<argv[3];goo<<argv[4];
+    //int tt,gg; foo>>tt;moo>>gg; time_chunk = minutes(tt); lf_delay = minutes(gg);
+    //occupation_deadline=goo.str();
     /*******************/
     /*init the output files*/
     stringstream ss4,ss5,ss6;
-    ss4<<"output_files/lf_chunk_time_span_distr_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+    ss4<<"output_files/lf_chunk_time_span_distr_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
     lf_chunk_time_span_dist=ss4.str();    
-    ss5<<"output_files/lf_time_diff_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+    ss5<<"output_files/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
     lf_time_diff = ss5.str();
-    ss6<<"output_files/lf_valid_time_diff_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";;
+    ss6<<"output_files/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";;
     lf_valid_time_diff = ss6.str();
     /***********************/
     base_dir = argv[0];
     initBoxes(base_dir);
     /*remove that later (2)*/
     //change the occupation deadline of the boxes
-    for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end();kk++) {      
-      if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {	
-	string existingDate = to_iso_string(kk->second.occupiedWhen);
-	string newDate = existingDate.substr(0,existingDate.length()-6) + occupation_deadline;	
-	ptime occupation_time(from_iso_string(newDate));	
-	kk->second.occupiedWhen = occupation_time;		
-      }      
-    }   
+    //for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end();kk++) {      
+     // if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {	
+//	string existingDate = to_iso_string(kk->second.occupiedWhen);
+	//string newDate = existingDate.substr(0,existingDate.length()-6) + occupation_deadline;	
+	//ptime occupation_time(from_iso_string(newDate));	
+	//kk->second.occupiedWhen = occupation_time;		
+      //}      
+    //}   
     /*********************/
     /*print the boxes*/
     //for (map<string,Box>::iterator i = boxes.begin(); i!=boxes.end(); i++ )
       //i->second.print();
+      
     /*this call is in the beginning, as advised in the igraph manual*/
     igraph_i_set_attribute_table(&igraph_cattribute_table);   
      
@@ -1532,7 +1570,7 @@ int main(int argc, char**argv) {
       */  
       /*start reading the whole recording history of all boxes and infer social events
 	possible events are - discovery, exploration, revisit, leading-following*/        
-      multiset<BatEntry,batEntryCompare>::iterator from,to;
+      multiset<BatEntry,batEntryCompare>::iterator from,to,cur;
       from=multibats.begin();
       ptime prev_instruction_time = multibats.begin()->TimeOfEntry; //kickstart
       //int counter1 = 0;
@@ -1541,98 +1579,81 @@ int main(int argc, char**argv) {
       //store all pairs of experience and naiive bats
       vector<Lf_pair> vec_lfpairs;      
       //IMPORTANT: DO THE ANALYSIS ONE BOX AT A TIME!!!!    
-      vector<time_duration> lf_chunk_sizes; //stores the time duration of the chunk that a lead-follow event was recorded in     
-      for (to=multibats.begin(); to != multibats.end(); to++) {     	
-	//get a chunk of instructions. enter if two consequtive instructions are separated 
-	//by more than time_chunk OR we have started a new box
-	if (to->TimeOfEntry - prev_instruction_time > time_chunk || to->box_name != bx->name) {	
-	  //copy the chunk into the vector
-	  vector<BatEntry> chunk(from,to);
-	  //what is the time span of the chunk?
-	  vector<BatEntry>::iterator last_chunk_element = chunk.end();
-	  last_chunk_element--; //go to the real last element
-	  time_duration t = last_chunk_element->TimeOfEntry - chunk.begin()->TimeOfEntry;	
-	  //stores an individual with a vector of all times that this individual has been
-	  //recorded in the chunk. 2 maps for leaders and followers. The idea is then to 
-	  //pair up all followers to leaders, respecting the "3-minute" rule
-	  map<string, vector<ptime> > leaders, followers;
-	  //always set the first bat in the chunk to be the discoverer if the box has not beed
-	  //discovered yet. should happen only once for each box
-	  vector<BatEntry>::iterator iter = chunk.begin();
-	  if (bx->status == UNDISCOVERED) {
-	    bx->status = DISCOVERED;
-	    pair<string,ptime> discoverer(iter->hexid,iter->TimeOfEntry);
-	    bx->discoveredBy = discoverer;
-	    bt = &bats_records[iter->hexid];
-	    bt->box_knowledge[bx->name] = EXPERIENCED;
-	    vector<ptime> v; v.push_back(iter->TimeOfEntry);
-	    leaders[bt->hexid] = v;
+      //vector<time_duration> lf_chunk_sizes; //stores the time duration of the chunk that a lead-follow event was recorded in           
+      for (to=multibats.begin(); to != multibats.end(); to++) {
+	//find the boundaries of a box
+	cout<<"Box "<<bx->name<<endl;
+	//cout<<to->box_name<<endl;
+	vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
+	map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
+	vector<Lf_pair> current_box_pairs;
+	while (to!=multibats.end() && to->box_name == bx->name) to++;
+	//not "to" points to the first entry of the new box
+	cur=from;
+	while (cur != to) {
+	  box_bat_entries.push_back(*cur);
+	  cur++;
+	}
+	/*main pairing loop. no enforcement of max. leader-follower time difference*/
+	//the first bat is the discoverer, i.e. she is automatically experienced
+	bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;
+	boxes[bx->name].status = DISCOVERED;
+	for (unsigned i=0; i<box_bat_entries.size(); i++) {
+	  Bat B1 = bats_records[box_bat_entries[i].hexid];
+	  //check if B1 needs to update her knowledge
+	  ptime &ref = lastSeen[box_bat_entries[i].hexid];
+	  if (ref.is_not_a_date_time()) ref = pos_infin;
+	  time_duration td_update_knowledge = box_bat_entries[i].TimeOfEntry - ref;
+	  if (td_update_knowledge > knowledge_delay) B1.box_knowledge[bx->name] = EXPERIENCED;	    
+	  ref = box_bat_entries[i].TimeOfEntry;
+	  for (unsigned j=i; j<box_bat_entries.size(); j++) {	
+	    //pair individual i and all j's
+	    Bat B2 = bats_records[box_bat_entries[j].hexid];	    
+	    if (B1 == B2) continue; //no pairs with the same bat, i.e. no self-pairs
+	    //create the pair
+	    Lf_pair new_pair(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);
+	    //does this pair already exist?
+	    bool exist = false; //doesn't exist by default
+	    for (unsigned k=0; k<current_box_pairs.size(); k++) {
+	      if (current_box_pairs[k].equals(new_pair)) {exist = true; break;}
+	    }
+	    if (!exist) { //pair does not exist
+	      //if the time diff between B1 and B2 is too great, do not keep the pair
+	      time_duration td = box_bat_entries[j].TimeOfEntry - box_bat_entries[i].TimeOfEntry;
+	      if (td <= lf_delay) { //the pair is a candidate to be added
+		ptime &ref2 = lastSeen[box_bat_entries[i].hexid];
+		if (ref2.is_not_a_date_time()) ref2 = pos_infin;
+		time_duration td_update_knowledge2 = box_bat_entries[j].TimeOfEntry - ref2;
+		if (td_update_knowledge2 > knowledge_delay) B2.box_knowledge[bx->name] = EXPERIENCED;	    
+		else { //add the pair
+		  //if both are neither experienced or naiive, keep the  pair
+		  if (!(B1.box_knowledge[bx->name] == EXPERIENCED && B2.box_knowledge[bx->name] == EXPERIENCED) &&
+		      !(B1.box_knowledge[bx->name] == NAIIVE && B2.box_knowledge[bx->name] == NAIIVE))
+			  current_box_pairs.push_back(new_pair);
+		}
+		lastSeen[box_bat_entries[j].hexid] = box_bat_entries[j].TimeOfEntry;
+		
+	      }
+	    }
+	    else { //the pair exists
+	    }
+
+	    
+	    
+
+	    if (!exist)  //the pair does not exist, add it to the vector
+	      current_box_pairs.push_back(new_pair);
+	    
+	    
 	  }	  
-	  else { //there can be no lf event in a chunk with discovery
-	    //start analysing the chunk from the first element
-	    //cout<<"CHUNK"<<endl;
-	    for (iter=chunk.begin(); iter != chunk.end(); iter++) {
-	      //print the chunk
-	      //iter->print();
-	      bt = &bats_records[iter->hexid];
-	      //is this an experienced or naiive bat
-	      if (bt->box_knowledge[bx->name] == EXPERIENCED) {
-		//add to the leaders map. if it exists update its timings vector
-		vector<ptime> &ptimevector = leaders[bt->hexid];
-		ptimevector.push_back(iter->TimeOfEntry);
-	      }
-	      else if (bt->box_knowledge[bx->name] == NAIIVE) {
-		//add to the followers map. if it exists update its timings vector
-		vector<ptime> &ptimevector = followers[bt->hexid];
-		ptimevector.push_back(iter->TimeOfEntry);
-	      }
-	      else {
-		cout<<"Failed sanity checks: Bat "<<bt->hexid<<" is neither experienced nor naiive about Box "<<bx->name<<endl;	      
-	      }
-	    } //end for (iter=chunk.begin(); iter != chunk.end(); iter++) {
-	  } //end else
-	  //set all bats in the chunk to experienced
-	  for (iter=chunk.begin(); iter != chunk.end(); iter++) {	
-	    bt = &bats_records[iter->hexid];
-	    bt->box_knowledge[bx->name] = EXPERIENCED;
-	  }
-	  //now match leaders to followers
-	  bool lf_event = false;
-	  for (map<string,vector<ptime> >::iterator ii = followers.begin(); ii != followers.end(); ii++) {
-	    for (map<string,vector<ptime> >::iterator jj = leaders.begin(); jj != leaders.end(); jj++) {
-	      time_duration minimum_time_delay(pos_infin); //must be very very big
-	      ptime leader(pos_infin); ptime follower(pos_infin);
-	      //find the minimum distance between a leader and a follower
-	      for (unsigned iii=0; iii < ii->second.size(); iii++) {    
-		for (unsigned jjj=0; jjj < jj->second.size(); jjj++) {
-		  time_duration current_time_delay = ii->second[iii] - jj->second[jjj];
-		  if (current_time_delay.is_negative()) 		    
-		    current_time_delay = current_time_delay.invert_sign();	  
-		  if (current_time_delay < minimum_time_delay) { //update the minimum time delay
-		    minimum_time_delay = current_time_delay;
-		    //cout<<to_simple_string(minimum_time_delay)<<endl;
-		    leader = jj->second[jjj]; follower = ii->second[iii];
-		  }		  
-		}	      
-	      } //end of finding minimum distance	     
-	      //add the identified pair IFF the minimum found distance is not longer than the allower "3 minutes"	      
-	      Lf_pair newpair(bats_records[jj->first],bats_records[ii->first],leader,follower,bx->name);
-	      if (minimum_time_delay <= lf_delay) { 
-		 newpair.valid = true; //this is a valid pair
-		 bats_records[jj->first].part_of_lf_event = true; //leader
-		 bats_records[ii->first].part_of_lf_event = true; //follower
-	      }
-	      vec_lfpairs.push_back(newpair);
-	      lf_event = true;	      
-	    }	    
-	  } //end for (map<string,vector<ptime> >::iterator ii = followers.begin(); ii != followers.end(); ii++)
-	  if (lf_event) lf_chunk_sizes.push_back(t);
-	  from = to; //move the 'from' pointer
-	  bx = &boxes[to->box_name]; //point the box pointer to the box of the current BatEntry	
-	} //end if (to->TimeOfEntry - prev_instruction_time > time_chunk || to->box_name != bx->name)
-	prev_instruction_time = to->TimeOfEntry;	  
+	}
+	to--; //go back to the last entry of the previous box_entries
+	from=to; from++; //move the "from" pointer to the first entry of the new box	
+	if (from == multibats.end()) break;
+	bx->name = from->box_name;
+
       } //end for (to=multibats.begin(); to != multibats.end(); to++)
-      
+      exit(1);
       
       //print the activity in all boxes     
       /*
@@ -1647,15 +1668,15 @@ int main(int argc, char**argv) {
       /*output the chunks time span in which lf events were recorded,
        regardless of the time distance b/n a leader and a follower*/
       ofstream os(lf_chunk_time_span_dist.c_str(),ios::out);
-      if (!os.good()) {
-	perror(lf_chunk_time_span_dist.c_str());
-	exit(1);
-      }
+//      if (!os.good()) {
+//	perror(lf_chunk_time_span_dist.c_str());
+//	exit(1);
+  //    }
       
-      for (unsigned i=0; i<lf_chunk_sizes.size(); i++) {
-	os<<to_simple_string(lf_chunk_sizes[i])<<endl;
-      }
-      os.close();
+  //    for (unsigned i=0; i<lf_chunk_sizes.size(); i++) {
+	//os<<to_simple_string(lf_chunk_sizes[i])<<endl;
+      //}
+      //os.close();
       /*output all matched pairs*/
       //for (unsigned i=0; i<vec_lfpairs.size(); i++)
       //  vec_lfpairs[i].print();
@@ -1667,7 +1688,7 @@ int main(int argc, char**argv) {
 	exit(1);
       }
       for (unsigned i=0; i<vec_lfpairs.size(); i++) {
-	time_duration td = vec_lfpairs[i].tfollower - vec_lfpairs[i].tleader;
+	time_duration td = vec_lfpairs[i].tb1 - vec_lfpairs[i].tb2;
 	if (td.is_negative())
 	  td = td.invert_sign();
 	os<<to_simple_string(td)<<endl;
@@ -1681,7 +1702,7 @@ int main(int argc, char**argv) {
       }
       for (unsigned i=0; i<vec_lfpairs.size(); i++) {
 	if (vec_lfpairs[i].valid) {
-	  time_duration td = vec_lfpairs[i].tfollower - vec_lfpairs[i].tleader;
+	  time_duration td = vec_lfpairs[i].tb1 - vec_lfpairs[i].tb2;
 	  if (td.is_negative())
 	    td = td.invert_sign();
 	  os<<to_simple_string(td)<<endl;
@@ -1697,7 +1718,7 @@ int main(int argc, char**argv) {
       //map<string,int> bats_n_daughters_following;
     
       /*create the cxf file*/
-      stringstream cxf; cxf<<"output_files/lead_follow_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
+      stringstream cxf; cxf<<"output_files/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
       ofstream cxffile(cxf.str().c_str(),ios::trunc);
       //first init a map between hexids and initial node sizes
       map<string,double> bat_nodes;
@@ -1718,7 +1739,7 @@ int main(int argc, char**argv) {
       igraph_matrix_init(&lf_adjmatrix,nbats,nbats); //init the square matrix
       igraph_matrix_null(&lf_adjmatrix);      
       /*create the cef file*/
-      stringstream cef; cef<<"output_files/lead_follow_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cef";
+      stringstream cef; cef<<"output_files/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cef";
       ofstream ceffile(cef.str().c_str(),ios::trunc);      
       /*stores a directed edge between Bat1.hexid (leader) and Bat2.hexid (follower)
      the edge is encoded as a single string of Bat1.hexid+Bat2.hexid*/
@@ -1734,13 +1755,13 @@ int main(int argc, char**argv) {
         if (lfpair.valid) { //only valid pairs
 	  total_valid_pairs++;
 	  ceffile<<"["<<endl;
-	  Bat *b = &bats_records[lfpair.leader.hexid];
+	  Bat *b = &bats_records[lfpair.getLeaderId()];
 	  //create (or update) an edge between the leader and the follower	
-	  string last4letters_leader = lfpair.leader.hexid;	
+	  string last4letters_leader = lfpair.getLeaderId();	
 	  //always get the last 4 letters of the leaders hexid, because that's what stored in mother_daughter multimap
 	  last4letters_leader = last4letters_leader.substr(last4letters_leader.length()-4,4);	  
-	  bats_lead_stats[lfpair.leader.hexid]++;
-	  bats_follow_stats[lfpair.follower.hexid]++;
+	  bats_lead_stats[lfpair.getLeaderId()]++;
+	  bats_follow_stats[lfpair.getFollowerId()]++;
 	  b->total_following++; //one more bat has followed me
 				//we'll see if she's my daughter shortly
 	  total_following_events++;
@@ -1749,7 +1770,7 @@ int main(int argc, char**argv) {
 	  pair<multimap<string,string>::iterator,multimap<string,string>::iterator > p;
 	  multimap<string,string>::iterator k;
 	  p = mother_daughter.equal_range(last4letters_leader);
-	  string last4letters_follower = lfpair.follower.hexid;
+	  string last4letters_follower = lfpair.getFollowerId();
 	  last4letters_follower = last4letters_follower.substr(last4letters_follower.length()-4,4);
 	  //cout<<last4letters_leader<<" <<-- "<<last4letters_follower<<endl;
 	  //now check if any of the children match our follower
@@ -1760,8 +1781,8 @@ int main(int argc, char**argv) {
 	  }
 	  //concatenate the two bats' hexids to encode a relatedness pair	    
 	  stringstream ss2(stringstream::in | stringstream::out);
-	  string sledvasht = lfpair.follower.hexid;
-	  string vodach    = lfpair.leader.hexid;
+	  string sledvasht = lfpair.getFollowerId();
+	  string vodach    = lfpair.getLeaderId();
 	  ss2<<sledvasht.substr(sledvasht.length()-4,4)<<vodach.substr(vodach.length()-4,4);
 	  //change the order now. we need both to search in the relatedness map
 	  stringstream ss3(stringstream::in | stringstream::out);
@@ -1773,33 +1794,33 @@ int main(int argc, char**argv) {
 	    related_itr = relatedness_map.find(ss3.str());
 	    if (related_itr != relatedness_map.end()) 
 	      b->cumulative_relatedness += related_itr->second; //found it
-	    else cout<<"Warning: No relatedness data between "<<lfpair.leader.hexid<<" and "<<lfpair.follower.hexid<<endl;
+	    else cout<<"Warning: No relatedness data between "<<lfpair.getLeaderId()<<" and "<<lfpair.getFollowerId()<<endl;
 	  }
 	  else 
 	    b->cumulative_relatedness += related_itr->second; //found it	    	
 	  //concatenate the two bats' hexids to encode an edge
 	  stringstream ss(stringstream::in | stringstream::out);
-	  ss<<lfpair.leader.hexid<<lfpair.follower.hexid;
+	  ss<<lfpair.getLeaderId()<<lfpair.getFollowerId();
 	  edges_itr = edges.insert(ss.str());	
 	  if (edges_itr.second == true) { //the edge did not exist before
 					    //create it in the cef file					    
 	    edges_width[ss.str()] = edges_starting_width;					    
 	    //+1 in the call below, because indexing in the cef file is from 1			   
-	    ceffile<<"addEdge: ("<<bats_map[lfpair.follower.hexid]+1<<",";
-		ceffile<<bats_map[lfpair.leader.hexid]+1<<") ";	      
+	    ceffile<<"addEdge: ("<<bats_map[lfpair.getFollowerId()]+1<<",";
+		ceffile<<bats_map[lfpair.getLeaderId()]+1<<") ";	      
 		ceffile<<"width{"<<edges_starting_width<<"} "<<"weight{"<<edges_starting_width<<"} ";
 		ceffile<<"color{0.803,0.784,0.694}"<<endl;	      	      
 	  }
 	  else { //the edge exsited. update the edge weight and the size of the leading node
 	    edges_width[ss.str()] += 1.0;
-	    ceffile<<"editEdge: ("<<bats_map[lfpair.follower.hexid]+1<<",";
-	    ceffile<<bats_map[lfpair.leader.hexid]+1<<") ";
+	    ceffile<<"editEdge: ("<<bats_map[lfpair.getFollowerId()]+1<<",";
+	    ceffile<<bats_map[lfpair.getLeaderId()]+1<<") ";
 	    ceffile<<"width{"<<edges_width[ss.str()]<<"} ";
 	    ceffile<<"weight{"<<edges_width[ss.str()]<<"}"<<endl;
 	  }
 	  /*add/update the edge to the adjacency matrix*/
-	  MATRIX(lf_adjmatrix,bats_map[lfpair.follower.hexid],
-		      bats_map[lfpair.leader.hexid])++;     	  
+	  MATRIX(lf_adjmatrix,bats_map[lfpair.getFollowerId()],
+		      bats_map[lfpair.getLeaderId()])++;     	  
 	  //calculate the pagerank of the graph
 	  igraph_t g2;  
 	  igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",true);
@@ -1849,7 +1870,7 @@ int main(int argc, char**argv) {
       igraph_matrix_destroy(&lf_adjmatrix);
       
       /*write the final pagerank (fpr) to a file*/
-      stringstream fpr; fpr<<"output_files/lead_follow_fpr_"<<Year<<"_"<<time_chunk.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+      stringstream fpr; fpr<<"output_files/lead_follow_fpr_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
       ofstream fprfile(fpr.str().c_str(),ios::trunc);
       if (!fprfile.good()) {
 	perror(fpr.str().c_str()); exit(1);	
