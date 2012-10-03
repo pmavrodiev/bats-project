@@ -373,7 +373,7 @@ dev.off()
 
 
 #plot all distributions of time differences b/n leader and follower for all pairs on 1 plot
-setwd("/home/pmavrodiev/Documents/bats/result_files/output_files")
+setwd("/home/pmavrodiev/Documents/bats/result_files/output_files/2008")
 fileNamePatterns = "lf_time_diff_2008_" 
 files = list.files(getwd(),pattern=fileNamePatterns)
 time_data = matrix(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
@@ -411,14 +411,14 @@ for (j in 1:length(chunk_boundaries)) {
          cex=2,xlab="Time difference (minutes)",ylab="Tail CDF",ylim=c(0,1),
          xlim=c(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
               as.POSIXct(strptime("00:50:00","%H:%M:%S"))),
-         main=paste("Chunks boundary = ",chunk_boundaries[j]," minutes",sep=""),cex.main=4)
+         main=paste("box_delay = ",chunk_boundaries[j]," minutes",sep=""),cex.main=4)
     lines(unique(sort(x2)),y2,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=0,type="o")
     lines(unique(sort(x3)),y3,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=3,type="o")
     lines(unique(sort(x4)),y4,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=5,type="o")  
-    legend("topright",c(paste("2am / ",length(y1),sep=""),
-                        paste("3am / ",length(y2),sep=""),
-                        paste("5am / ",length(y3),sep=""),
-                        paste("8am / ",length(y4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
+    legend("topright",c(paste("2am / ",length(x1),sep=""),
+                        paste("3am / ",length(x2),sep=""),
+                        paste("5am / ",length(x3),sep=""),
+                        paste("8am / ",length(x4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
   }
 }
 dev.off()
@@ -463,15 +463,15 @@ for (j in 1:length(chunk_boundaries)) {
          cex=2,xlab="Time difference (minutes)",ylab="Tail CDF",ylim=c(0,1),
          xlim=c(as.POSIXct(strptime("00:00:00","%H:%M:%S")),
                 as.POSIXct(strptime(paste("00:0",lf_delays[k],":00",sep=""),"%H:%M:%S"))),
-         main=paste("Chunks boundary = ",chunk_boundaries[j]," minutes",
-                    " / LF dist. = ",lf_delays[k]," minutes",sep=""),cex.main=4)
+         main=paste("box_delay = ",chunk_boundaries[j]," minutes",
+                    " / lf_delay = ",lf_delays[k]," minutes",sep=""),cex.main=4)
     lines(unique(sort(x2)),y2,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=0,type="o")
     lines(unique(sort(x3)),y3,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=3,type="o")
     lines(unique(sort(x4)),y4,cex.axis=4,cex.lab=4,lwd=2,cex=2,pch=5,type="o")  
-    legend("topright",c(paste("2am / ",length(y1),sep=""),
-                        paste("3am / ",length(y2),sep=""),
-                        paste("5am / ",length(y3),sep=""),
-                        paste("8am / ",length(y4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
+    legend("topright",c(paste("2am / ",length(x1),sep=""),
+                        paste("3am / ",length(x2),sep=""),
+                        paste("5am / ",length(x3),sep=""),
+                        paste("8am / ",length(x4),sep="")),lwd=c(2,2,2,2),pch=c(6,0,3,5),cex=4)  
   }
 }
 dev.off()
