@@ -28,7 +28,7 @@ extern map<string,ptime> box_occupation; //maps box names to their dates of occu
 string box_name, box_date;
 extern vector<string> bats_vector;
 extern vector<string> transponders_vector;
-extern time_duration time_chunk;
+extern time_duration knowledge_delay;
 extern time_duration lf_delay;
 extern string occupation_deadline;
 extern string Year;
@@ -44,7 +44,7 @@ LETTER [a-zA-Z]
 %x COMMENT
 %x BATS
 %x TRANSPONDERS
-%x TIMECHUNK
+%x BATUPDATE
 %x LFDELAY
 %x OCCUPATIONDEADLINE
 %x YEAR
@@ -54,7 +54,7 @@ LETTER [a-zA-Z]
 "begin{year}"	BEGIN(YEAR);
 "begin{occupation_deadline}"	BEGIN(OCCUPATIONDEADLINE);
 "begin{lf_delay}"	BEGIN(LFDELAY);
-"begin{time_chunk}"	BEGIN(TIMECHUNK);
+"begin{bat_update}"	BEGIN(BATUPDATE);
 "begin{transponders}"	BEGIN(TRANSPONDERS);
 "begin{bats}"	BEGIN(BATS);
 "begin{box_occupation}"	BEGIN(BOX_OCCUPATION);
@@ -63,7 +63,7 @@ LETTER [a-zA-Z]
 <BATS>"end{bats}" BEGIN(INITIAL);  
 <BOX_OCCUPATION>"end{box_occupation}" BEGIN(INITIAL);
 <TRANSPONDERS>"end{transponders}" BEGIN(INITIAL);
-<TIMECHUNK>"end{time_chunk}" BEGIN(INITIAL);
+<BATUPDATE>"end{bat_update}" BEGIN(INITIAL);
 <LFDELAY>"end{lf_delay}" BEGIN(INITIAL);
 <OCCUPATIONDEADLINE>"end{occupation_deadline}" BEGIN(INITIAL);
 
@@ -99,13 +99,13 @@ LETTER [a-zA-Z]
 }
 
 
-<TIMECHUNK>{DIGIT}+ {
+<BATUPDATE>{DIGIT}+ {
   int digit;
   stringstream ss;
   pch = strtok(yytext,".");
   //printf("%s\n",pch);
   ss<<pch; ss>>digit;
-  time_chunk = minutes(digit);
+  knowledge_delay = minutes(digit);
 }
 
 <TRANSPONDERS>{HEXDIGIT}{10} {  

@@ -220,7 +220,7 @@ extern char *yytext;
 #define COMMENT 2
 #define BATS 3
 #define TRANSPONDERS 4
-#define TIMECHUNK 5
+#define BATUPDATE 5
 #define LFDELAY 6
 #define OCCUPATIONDEADLINE 7
 #define YEAR 8
