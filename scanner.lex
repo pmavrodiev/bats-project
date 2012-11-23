@@ -15,6 +15,7 @@ using namespace boost::gregorian;
 
 string Tid; string Date; string Time; string HexId; 
 char *pch;
+unsigned int bats_counter = 0;
 
 pair<string,string> entry_pair;
 extern vector < pair<string,string> >  box_entries; 
@@ -26,7 +27,9 @@ extern map<string,ptime> box_occupation; //maps box names to their dates of occu
 					 //is set to not_a_date_time
 //pair<string,ptime> box_occupation_entry;
 string box_name, box_date;
-extern vector<string> bats_vector;
+
+extern map<string,unsigned,bool(*)(string,string)> bats_map;
+//extern vector<string> bats_vector;
 extern vector<string> transponders_vector;
 extern time_duration knowledge_delay;
 extern time_duration lf_delay;
@@ -120,7 +123,8 @@ LETTER [a-zA-Z]
   string bat_hexid;
   pch = strtok(yytext,".");
   bat_hexid = pch;
-  bats_vector.push_back(bat_hexid);
+  bats_map[bat_hexid] = bats_counter++;
+  //bats_vector.push_back(bat_hexid);
 }
  
 
