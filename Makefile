@@ -1,5 +1,7 @@
 TARGET			= bats
 MAIN			= parse.cpp
+CLASSES			= classes.cpp
+GLOBALDEFS		= global_defs.cpp
 GRAMMAR_FILE		= scanner.lex
 SCANNER 		= flex
 SCANNER_FILE		= standard.yy.c
@@ -13,7 +15,7 @@ RM			= rm
 
 all: ${TARGET}
 
-${TARGET}: ${SCANNER_FILE} ${MAIN}
+${TARGET}: ${SCANNER_FILE} ${CLASSES} ${GLOBALDEFS} ${MAIN}
 	${CPP} ${SCANNER_FILE} ${MAIN} ${CPPFLAGS} ${LDFLAGS} -o $@
 
 ${SCANNER_FILE}:  ${GRAMMAR_FILE}

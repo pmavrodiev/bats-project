@@ -1,5 +1,33 @@
 [Buildset]
 BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00c\x00o\x00d\x00e)
 
+[Launch]
+Launch Configurations=Launch Configuration 0
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=bats
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2008 /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 3 3 050000
+Debugger Shell=
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+Display Demangle Names=true
+Display Static Members=true
+EnvironmentGroup=default
+Executable=file:///home/pmavrodiev/Documents/bats/code/bats
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+GDB Path=gdb
+Project Target=
+Remote GDB Config Script=
+Remote GDB Run Script=
+Remote GDB Shell Script=
+Use External Terminal=false
+Working Directory=file:///home/pmavrodiev/Documents/bats/result_files
+isExecutable=true
+
 [Project]
 VersionControlSupport=kdevgit
