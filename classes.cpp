@@ -187,13 +187,14 @@ public:
     }
 };
 
+
 class Lf_pair {
 public:
     Bat *leader;
     Bat *follower;
     string box_name;
     ptime tleader;
-    ptime tfollower;
+    ptime tfollower;  
     bool valid; //valid only if abs(tleader-tfollower) <= "3-minute" rule. true by default
     Lf_pair() {
         valid=true;
@@ -235,10 +236,12 @@ public:
         box_name = bname;
         valid = true;
     }
-    void print() {
-        cout<<follower->hexid<<" {"<<to_simple_string(tfollower)<<"} --> ";
-        cout<<leader->hexid<<" {"<<to_simple_string(tleader)<<"}\t";
-        cout<<box_name<<endl;
+    void print(ofstream *out) {
+	if (!out->good()) {
+	  cerr<<"Cannot print to output file: bad file descriptor"<<endl;
+	}
+	else
+	  (*out)<<leader->hexid<<" "<<follower->hexid<<" "<<to_iso_string(tleader)<<" "<<to_iso_string(tfollower)<<" "<<box_name<<endl;
     }
     time_duration get_lf_delta() {
         time_duration t = tfollower-tleader;
@@ -260,4 +263,67 @@ public:
         return follower->hexid;
     }
 };
+
+bool Lf_pair_compare(Lf_pair lf1, Lf_pair lf2) {
+      return (lf1.tleader < lf2.tleader);    
+}
+
+class assortativity_map {
+private:
+    map<unsigned, vector<unsigned> > m;
+public: 
+  assortativity_map() {}
+  void print_all(ofstream *out) {
+    for (map<unsigned, vector<unsigned> >::iterator itr2=m.begin(); itr2 != m.end(); itr2++) {	  
+      (*out)<<itr2->first<<" ";
+      for (unsigned ttt=0; ttt<itr2->second.size(); ttt++)     
+	(*out)<<itr2->second[ttt]<<" ";
+      (*out)<<endl;
+    }    
+  }  
+  
+  void print_average(ofstream *out) {
+    for (map<unsigned, vector<unsigned> >::iterator itr2=m.begin(); itr2 != m.end(); itr2++) {	  
+      double sum=0.0;
+      
+      for (unsigned ttt=0; ttt<itr2->second.size(); ttt++)
+	sum += itr2->second[ttt];
+      
+      (*out)<<itr2->first<<" "<<sum / itr2->second.size() <<endl;	  
+    }
+  }
+  int avg_neighbour_connectivity(igraph_vector_t *indegrees,
+			         igraph_t *graph,
+			         unsigned nnodes) {
+  igraph_vector_add_constant(indegrees,1); //add the constant back 
+  for (unsigned i=0; i<nnodes; i++) {
+    igraph_integer_t v_id = i;
+    unsigned v_indegree = (unsigned) VECTOR(*indegrees)[v_id];
+    //select all neighbours of v_id
+    igraph_vs_t vs;
+    igraph_vs_adj(&vs,v_id,/*degree=*/IGRAPH_OUT);
+    igraph_vit_t vit;
+    igraph_vit_create(graph,vs,&vit);
+    while (!IGRAPH_VIT_END(vit)) {
+      igraph_integer_t neighbour_id = (igraph_integer_t) IGRAPH_VIT_GET(vit);
+      m[v_indegree].push_back( VECTOR(*indegrees)[neighbour_id]);
+      IGRAPH_VIT_NEXT(vit);
+    }
+    igraph_vit_destroy(&vit);
+    igraph_vs_destroy(&vs);
+  }  
+  return 0;
+}  
+};
+
+
+
+
+
+
+
+
+
+
+
 /* ==================================================================== */

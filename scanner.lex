@@ -285,7 +285,7 @@ LETTER [a-zA-Z]
 {HEXDIGIT}{10} {
   HexId = yytext;
   transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
-
+  //cout<<HexId<<endl;
   if (!Date.empty()) { //non-Trovan unique files
     if (HexId == "000697B587")
       HexId = "000697B597";

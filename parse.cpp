@@ -32,6 +32,12 @@ using namespace boost::gregorian;
 	 check whether the reading device is the right one for the box. The problem is that
 	 with the ascii format.*/
 
+/*Run configurations
+ 1. Single run - /home/pmavrodiev/Documents/bats/data/GB2_2008 /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 3 5 050000
+*/
+
+
+
 #include "classes.cpp"
 #include "global_defs.cpp"
 
@@ -572,7 +578,11 @@ void processDataDirectory(string dir_name,string box_name) {
                 if (skip) continue;
                 cout<<file_name.c_str()<<endl;
                 yyin = fopen(file_name.c_str(),"r");
-                yylex();
+		if (yyin == NULL) {
+		  perror(file_name.c_str());
+		  exit(1);
+		}	
+                yylex();		
                 counter ++;
                 file_counter ++;
                 /*PROCESS THE CONTENTS OF EACH DATA FILE*/
@@ -607,7 +617,8 @@ void processDataDirectory(string dir_name,string box_name) {
                 } //end for (unsigned i=0; i<box_entries.size(); i++) {
                 box_entries.clear();
                 /*******************************************/
-            } //end if
+		fclose(yyin);
+            } //end if           
         } //end while
         cout<<"processed "<<file_counter<<" files"<<endl;
     } // end if (data_dir != NULL) {
@@ -625,7 +636,7 @@ int main(int argc, char**argv) {
     argc--;
     /* argv[1] = config file
      */
-    if (argc < 5 || argc >=6) {
+    if (argc < /*2*/5 || argc >= /*3*/6) {
         cout<<"Version: "<<version<<endl<<endl;
         cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
         cout<<"<dir>\t full path to the directory containing transponder data files"<<endl;
@@ -674,16 +685,21 @@ int main(int argc, char**argv) {
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6;
-        ss5<<"output_files_new_2/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+        stringstream ss5,ss6,ss7;
+	string outdir="output_files_2011";//"output_files_new_2";
+        ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
-        ss6<<"output_files_new_2/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";;
+        ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_valid_time_diff = ss6.str();
+	ss7<<outdir<<"/lf_betweenness_preference"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	lf_pairs_valid_betweenness_preference=ss7.str();
+	
         /***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
         /*remove that later (2)*/
         //change the occupation deadline of the boxes
+        
         for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end(); kk++) {
             if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {
                 string existingDate = to_iso_string(kk->second.occupiedWhen);
@@ -692,6 +708,7 @@ int main(int argc, char**argv) {
                 kk->second.occupiedWhen = occupation_time;
             }
         }
+        
         /*********************/
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
@@ -720,8 +737,7 @@ int main(int argc, char**argv) {
                 delete [] B;
             }
         }
-        //cout<<relatedness_map.size()<<endl;
-
+      
         //initialize the mother daughter relationships
         //try to read "bats_mother_daughter_pairs_GB2_noMM.txt" in the current dir.
         //first column are mothers, second column are daughters
@@ -803,8 +819,7 @@ int main(int argc, char**argv) {
         cout<<"Total records in all boxes "<<counter<<endl;
         cout<<"\nMULTI BATS "<<multibats.size()<<endl;
 
-        /*generate individual movement history for each bat*/
-        //associate a bat name (string) with the corresponding Bat object
+         /*fill bat_records with movement information for each bat*/        
         for (itr=multibats.begin(); itr != multibats.end(); itr++) {
             BatEntry current = *itr;
             Bat &ref = bats_records[current.hexid]; //this is init of bats_records
@@ -813,11 +828,11 @@ int main(int argc, char**argv) {
             Box *box_ptr = &boxes[current.box_name];
             ref.add_movement(current.TimeOfEntry,box_ptr);
         }
+        /**********************************************************/
         //associate mothers to daughters
         for (map<string,unsigned int>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-            //for (unsigned i=0; i<nbats; i++) {
-            Bat &ref = bats_records[i->first];
-            //Bat &ref = bats_records[bats_vector[i]];
+	    /*Here, if there is a bat with no records in the data from bats_map, it will be added to bats_records*/
+            Bat &ref = bats_records[i->first];           
             //if no records exist for this bat then we need to init also its hexid,
             //because it would be an empty string
             ref.hexid = i->first;
@@ -909,19 +924,26 @@ int main(int argc, char**argv) {
                 cur++;
             }
             /*main pairing loop. no enforcement of max. leader-follower time difference*/
-            //the first bat is the discoverer, i.e. she is automatically experienced
-            bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;
-            bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
+            //the first bat is the discoverer, i.e. she is automatically experienced BUT not informed
+            //bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;	    
+            //bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
             boxes[bx->name].status = DISCOVERED;
             //==================================================================
             //int counter2 = 0;
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 //cout<<++counter2<<". Comparing "<<box_bat_entries[i].hexid<<" with ";
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
+		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
+		if (!b1_ref.is_not_a_date_time()) { //seen it before
+		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;
+		  if (t_d > knowledge_delay && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
+		    B1->box_knowledge[bx->name] = EXPERIENCED;
+		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
+		  }
+		}		
                 lastSeen[box_bat_entries[i].hexid] = box_bat_entries[i].TimeOfEntry;
                 for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {
-                    Bat *B2 = &bats_records[box_bat_entries[j].hexid];
-                    //cout<<box_bat_entries[j].hexid<<endl;
+                    Bat *B2 = &bats_records[box_bat_entries[j].hexid];                  
                     if (*B1 == *B2) {
                         /*cout<<"\t"<<"identical"<<endl;*/continue;   //no self lf events
                     }
@@ -951,7 +973,7 @@ int main(int argc, char**argv) {
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
                     bool exists = false;
-                    for (unsigned k=0; k<current_box_pairs.size(); k++) {
+		    for (unsigned k=0; k<current_box_pairs.size(); k++) {
                         if (current_box_pairs[k].equals(newPair)) {
                             //if it exists, update the current pair but only if the new pair has lower
                             //time difference between leader and follower
@@ -987,7 +1009,8 @@ int main(int argc, char**argv) {
             exit(1);
         }
         for (unsigned i=0; i<vec_lfpairs.size(); i++)
-            os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
+	    vec_lfpairs[i].print(&os);
+            //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
 
         os.close();
         //output only valid pairs, i.e. those which respect the max. allowed delay b/n leader and follower
@@ -997,32 +1020,68 @@ int main(int argc, char**argv) {
             exit(1);
         }
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
-            if (vec_lfpairs[i].valid) {
-                os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
-            }
+            if (vec_lfpairs[i].valid) 
+	        vec_lfpairs[i].print(&os);
+                //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
+            
         }
         os.close();
+	
+	/*output all valid lf pairs, sorted by time of recording the leader. used as input to plot betweenness preference*/
+	sort(vec_lfpairs.begin(),vec_lfpairs.end(),Lf_pair_compare);
+	os.open(lf_pairs_valid_betweenness_preference.c_str(),ios::out);
+        if (!os.good()) {
+            perror(lf_pairs_valid_betweenness_preference.c_str());
+            exit(1);
+        }          
+        os<<"leader follower time_leader time_follower box_name"<<endl;
+	for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+            if (vec_lfpairs[i].valid) {
+		vec_lfpairs[i].print(&os);                
+            }
+        }
+	os.close();
+	/*****************************************************/
         /*store the number of leading events that a leader has taken part of,
         regardless the number of following individuals*/
         map<string,unsigned> bats_lead_stats;
         /*store the number of times a bat has followed*/
         map<string,unsigned> bats_follow_stats;
-        /*compute the nodes sizes and colors, and the edge thickness and colors for the graph, based on the detected lf_pairs*/
-        map<unsigned,unsigned> bat_id2matrix_id; //maps the bat_id from bats_map to a consequtive range of ids for lf_adjmatrix
+
+	/*compute the nodes sizes and colors, and the edge thickness and colors for the graph, based on the detected lf_pairs*/
+	
+	//maps the bat_id from bats_map to a consequtive range of ids for lf_adjmatrix
         //we need this if the bats with recordings are fewer than the total #of bats
+	map<unsigned,unsigned> bat_id2matrix_id; 
+        
         /*stores a directed edge between follower and leader*/
-        map<pair<unsigned,unsigned>,double,bool(*)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) > edges(fn_pt3); //maps an edge to its width. an edge is a pair FROM and TO.
+	//maps an edge to its width. an edge is a pair FROM and TO.
+        map<pair<unsigned,unsigned>,double,bool(*)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) > edges(fn_pt3); 
+	
         map<int,unsigned> nodes; //maps a node_id to its size
-        double starting_node_size = 9.0;
+        //double starting_node_size = 9.0;
         double edges_starting_width = 1.0;
         int total_valid_pairs = 0;
         unsigned consequtive_ids=0;
+	
+	/*count how many bats have been part of lf events*/
+	unsigned int total_bats_in_lf_events = 0;
+	for (map<string,Bat>::iterator i=bats_records.begin(); i != bats_records.end(); i++) 
+	  if (i->second.part_of_lf_event)
+	    total_bats_in_lf_events++;
+        /*create an empty directed igraph with all bats and no edges yet*/
+        igraph_matrix_t lf_adjmatrix; //square matrix
+        igraph_matrix_init(&lf_adjmatrix,total_bats_in_lf_events,total_bats_in_lf_events); //init the square matrix
+        igraph_matrix_null(&lf_adjmatrix);
+        //igraph_vector_t final_page_rank;
+	
+	/*create edges*/
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
             Lf_pair lfpair = vec_lfpairs[i];
             if (lfpair.valid) { //only valid pairs
+	        total_valid_pairs++;
                 Bat *leader = &bats_records[lfpair.getLeaderId()];
                 leader->total_following++; //one more bat has followed me
-                total_valid_pairs++;
                 string leader_hexid = lfpair.getLeaderId(),follower_hexid=lfpair.getFollowerId();
                 bats_lead_stats[leader_hexid]++;
                 bats_follow_stats[follower_hexid]++;
@@ -1077,14 +1136,17 @@ int main(int argc, char**argv) {
                 if (edges.find(edge_pair) == edges.end()) //edge does not exist
                     edges[edge_pair] = edges_starting_width;
                 else 
-                    edges[edge_pair]++ ; //increase the width linearly
-                   
+                    edges[edge_pair]++ ; //increase the width linearly                   
                 /**********************/
+		/*add/update the edge to the adjacency matrix*/
+		MATRIX(lf_adjmatrix,bat_id2matrix_id[bats_map[follower_hexid]], bat_id2matrix_id[bats_map[leader_hexid]])++;		
             }
         }
+        /****************************************/
+
         /*create the cxf file*/
         stringstream cxf;
-        cxf<<"output_files_new_2/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
+        cxf<<outdir<<"/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
         ofstream cxffile(cxf.str().c_str(),ios::trunc);
 	//add the nodes
 	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
@@ -1100,82 +1162,96 @@ int main(int argc, char**argv) {
 	}
 	/***************************/
 	cxffile.close();
-	exit(0);
 	
-        /*create an empty directed igraph with all bats and no edges yet*/
-        igraph_matrix_t lf_adjmatrix; //square matrix
-        igraph_matrix_init(&lf_adjmatrix,total_bats_movinghistory,total_bats_movinghistory); //init the square matrix
-        igraph_matrix_null(&lf_adjmatrix);
-        igraph_vector_t final_page_rank;
-
-
-        //first init a map between hexids and initial node sizes
-        map<string,double> bat_nodes;
-
-        
-
-        /*add/update the edge to the adjacency matrix*/
-        //MATRIX(lf_adjmatrix,bats_map[lfpair.getFollowerId()], bats_map[lfpair.getLeaderId()])++;
-        //calculate the pagerank of the graph
+	/*calculate assortativity*/
         igraph_t g2;
-        igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",true);
-        igraph_vector_t eigenvector;
-        igraph_vector_init(&eigenvector,nbats);
-        igraph_vector_null(&eigenvector);
-        igraph_arpack_options_t aroptions;
-        igraph_arpack_options_init(&aroptions);
-        igraph_vs_t vs;
-        igraph_vs_all(&vs);
-        igraph_pagerank_old(&g2,&eigenvector,vs,true,300,0.001,0.99,false);
-        igraph_vector_copy(&final_page_rank,&eigenvector);  //save the final page rank vector
-        //update the size and colors of all nodes
-        for (map<string,unsigned>::iterator j=bats_map.begin(); j!=bats_map.end(); j++) {
-            //for (unsigned j=0; j<nbats; j++) {
-            Bat b1 = bats_records[j->first];
-            if (!b1.part_of_lf_event) continue; //skip this bat, if not part of any lf event
-            double percentage_following = (b1.total_following == 0) ? 0 :
-                                          b1.n_daughters_following / b1.total_following;
-            double mean_relatedness = (b1.total_following == 0) ? 0 :
-                                      b1.cumulative_relatedness / b1.total_following;
-            int idx=-1;
-            if (what_node_sizes == 1)
-                idx=binData(mean_relatedness,1);
-            else if (what_node_sizes == 0)
-                idx=binData(percentage_following,0);
-            else if (what_node_sizes == 2)
-                idx = binData(b1.total_following,2);
-            if (idx == -1)  {
-                cout<<"Error: Invalid index "<<percentage_following<<" or "<<mean_relatedness<<" or "<<b1.total_following<<" for binning "<<b1.hexid<<endl;
-                //ceffile<<endl;
-            }
-        } //end for (unsigned j=0; j<nbats; j++) {
-        //destroy the graph and the vector with page ranks
-        igraph_vector_destroy(&eigenvector);
-        igraph_destroy(&g2);
-        //end if (lfpair.valid)
+        igraph_vector_t indegree,res3,res4 /*,degree, indegree*/;  
+	igraph_real_t res1;
+	
+	stringstream assortativity;
+	assortativity<<"assortativity/"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ofstream assort(assortativity.str().c_str(),ios::trunc);
+	igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",/*ignore self loop=*/true);
+	igraph_vector_init(&indegree,total_bats_in_lf_events);
+	igraph_vector_init(&res3,total_bats_in_lf_events);igraph_vector_init(&res4,total_bats_in_lf_events);
+	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	igraph_betweenness(&g2,&res3,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
+	igraph_vector_add_constant(&indegree, -1);
+	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);	
+	//cout<<"Assortativity "<<res1<<endl;
+	assort<<res1<<endl;
+	
+	/*************************/
+	/*compute the average neighbour connectivity*/
+	assortativity_map original_graph, reshuffled_graph;
+	original_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	original_graph.print_all(&assort);
+	//original_graph.print_average(&assort);	
+	assort.close();
+	/*******************************************/
+	/*rewrire the graph*/
+	//cout<<endl;
+	stringstream assortativity_shuffled;
+	assortativity_shuffled<<"assortativity/"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<"_shuffled.txt";
+	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);
 
-        cxffile.close();
-        igraph_matrix_destroy(&lf_adjmatrix);
+	igraph_rewire(&g2,10000,IGRAPH_REWIRING_SIMPLE);
+	//igraph_rewire_edges(&g2,1,10000,false);
+        igraph_betweenness(&g2,&res4,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
+	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	igraph_vector_add_constant(&indegree, -1);
+	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);
+	assort_shuffled<<res1<<endl;
+	reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	reshuffled_graph.print_all(&assort_shuffled);
+	assort_shuffled.close();
 
-        /*write the final pagerank (fpr) to a file*/
-        stringstream fpr;
-        fpr<<"output_files_new_2/lead_follow_fpr_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
-        ofstream fprfile(fpr.str().c_str(),ios::trunc);
-        if (!fprfile.good()) {
-            perror(fpr.str().c_str());
-            exit(1);
-        }
+	//FILE *output_graph = fopen("rewired_graph.pajek","w");
+	//igraph_write_graph_pajek(&g2,output_graph);
+	//close(output_graph);
+	/*
+        stringstream dis;
+	dis<<"assortativity/"<<"betweenness-centrality.txt";
+	ofstream disassort(dis.str().c_str(),ios::trunc);
+	for (unsigned ll=0; ll<total_bats_in_lf_events; ll++) {
+	  igraph_integer_t v_id=ll;
+	  disassort<<(unsigned) VECTOR(res3)[v_id]<<" "<<(unsigned) VECTOR(res4)[v_id]<<endl;	  
+	}
+	disassort.close();
+	*/
+	/*DESTROY STUFF*/
+        igraph_destroy(&g2);       
+	igraph_vector_destroy(&indegree);
+	igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);
+        
+        igraph_matrix_destroy(&lf_adjmatrix);  
+	
+	/*example for disassortative network*/
+	/*
+	stringstream dis;
+	dis<<"assortativity/"<<"test.txt";
+	ofstream disassort(dis.str().c_str(),ios::trunc);
 
-        for (map<string,unsigned>::iterator j=bats_map.begin(); j!=bats_map.end(); j++) {
-            fprfile<<j->first<<" "<<VECTOR(final_page_rank)[j->second]<<" ";
-            fprfile<<bats_records[j->first].part_of_lf_event<<endl;
-        }
-        igraph_vector_destroy(&final_page_rank);
-        fprfile<<total_valid_pairs<<endl;
-        fprfile.close();
+	igraph_t star;
+	igraph_star(&star, 15, IGRAPH_STAR_UNDIRECTED,0);
+	igraph_vector_t degree;
+	igraph_real_t res2;
+	igraph_vector_init(&degree,15);
+	igraph_degree(&star,&degree,igraph_vss_all(),IGRAPH_ALL,0);
+	igraph_vector_add_constant(&degree, -1);
+	igraph_assortativity(&star,&degree,0,&res2,0);	
+	disassort<<res2<<endl;
+	assortativity_map dismap;
+	dismap.avg_neighbour_connectivity(&degree,&star,15);
+	dismap.print_all(&disassort);
+	disassort.close();
+	igraph_vector_destroy(&degree);
+	igraph_destroy(&star);
+	*/
+	
     }
 
-        if (create_sqlitedb) {
+    if (create_sqlitedb) {
             /* write the box recordings in a database if so configured. see the create_sqlitedb
             flag in the global definitions */
             map<string,Box>::iterator jj;
