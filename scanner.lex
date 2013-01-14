@@ -25,8 +25,12 @@ extern map<string,string> monaten; //maps months to their numerical value
 extern map<string,ptime> box_occupation; //maps box names to their dates of occupation
 					 //if a box has not been occupied, this date
 					 //is set to not_a_date_time
+
+/*stores the box programming: box_name->vector of bats programmed for this box*/
+extern map<string,vector<string> > box_programming; 
+
 //pair<string,ptime> box_occupation_entry;
-string box_name, box_date;
+string box_name, box_date,current_programmed_box;
 
 extern map<string,unsigned,bool(*)(string,string)> bats_map;
 //extern vector<string> bats_vector;
@@ -39,7 +43,6 @@ extern bool create_sqlitedb;
 int comment_caller;
 %}
 
-
 DIGIT [0-9]
 HEXDIGIT [a-fA-F0-9]
 LETTER [a-zA-Z]
@@ -47,6 +50,8 @@ LETTER [a-zA-Z]
 %x COMMENT
 %x BATS
 %x TRANSPONDERS
+%x BOX_PROGRAMMING
+%x INSIDE_BOX_PROGRAMMING
 %x BATUPDATE
 %x LFDELAY
 %x OCCUPATIONDEADLINE
@@ -61,9 +66,11 @@ LETTER [a-zA-Z]
 "begin{transponders}"	BEGIN(TRANSPONDERS);
 "begin{bats}"	BEGIN(BATS);
 "begin{box_occupation}"	BEGIN(BOX_OCCUPATION);
+"begin{box_programming}" {current_programmed_box="";BEGIN(BOX_PROGRAMMING);}
 <EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
 <YEAR>"end{year}" BEGIN(INITIAL);
-<BATS>"end{bats}" BEGIN(INITIAL);  
+<BATS>"end{bats}" BEGIN(INITIAL);
+<BOX_PROGRAMMING>"end{box_programming}" BEGIN(INITIAL);  
 <BOX_OCCUPATION>"end{box_occupation}" BEGIN(INITIAL);
 <TRANSPONDERS>"end{transponders}" BEGIN(INITIAL);
 <BATUPDATE>"end{bat_update}" BEGIN(INITIAL);
@@ -80,6 +87,23 @@ LETTER [a-zA-Z]
     printf("Error: Unrecognized value for exportdatabase in config file\n");
     exit(1);
   }
+}
+
+<BOX_PROGRAMMING>{DIGIT}+{LETTER}+":" {
+  pch=strtok(yytext,":");
+  current_programmed_box = pch;
+  BEGIN(INSIDE_BOX_PROGRAMMING);
+}
+
+<INSIDE_BOX_PROGRAMMING>{HEXDIGIT}{10}|"none"|"all" {
+  pch=strtok(yytext,".");
+  string current_programmed_bat = pch;
+  if (current_programmed_box == "") {
+    printf("Error: Something went wrong while processing the box programming from the config file\n");
+    exit(1);
+  }  
+  vector<string> &ref = box_programming[current_programmed_box];
+  ref.push_back(current_programmed_bat);  
 }
 
 <YEAR>{DIGIT}{4} {
@@ -396,6 +420,8 @@ BEGIN(COMMENT);
 
 
 <*>. //{printf("%s",yytext);}/* ignore this token in any start condition*/
+
+<INSIDE_BOX_PROGRAMMING>\n|\r|\r\n {BEGIN(BOX_PROGRAMMING);}
 
 <*>\n|\r|\r\n //{printf("%s",yytext);}/*ignore this token in any start condition*/
 

@@ -220,11 +220,13 @@ extern char *yytext;
 #define COMMENT 2
 #define BATS 3
 #define TRANSPONDERS 4
-#define BATUPDATE 5
-#define LFDELAY 6
-#define OCCUPATIONDEADLINE 7
-#define YEAR 8
-#define EXPORTDATABASE 9
+#define BOX_PROGRAMMING 5
+#define INSIDE_BOX_PROGRAMMING 6
+#define BATUPDATE 7
+#define LFDELAY 8
+#define OCCUPATIONDEADLINE 9
+#define YEAR 10
+#define EXPORTDATABASE 11
 
 #endif
 
@@ -333,9 +335,9 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 402 "scanner.lex"
+#line 428 "scanner.lex"
 
 
-#line 340 "standard.yy.h"
+#line 342 "standard.yy.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */

@@ -91,6 +91,14 @@ public:
     }
 };
 
+/*just like the normal boolean datatype, but this ensures that a bool is always inited to false*/
+class mybool {
+public:
+  bool custom_boolean;
+  mybool() {custom_boolean = false;}
+  mybool(bool b) {custom_boolean=b;}
+};
+
 class Bat {
 private:
     int internal_check; //safely ignore, used in make_informed for sanity checks
@@ -118,6 +126,8 @@ public:
     string hexid;
     set<pair<ptime, Box*>,movementCompare> movement_history;//time of recording at each box
     map<string,BatKnowledge> box_knowledge;//box_name -> knowledge. what bats know about each box
+    map<string,mybool> disturbed_in_box; //box_name->0/1. 0 if bat has not been disturbed in that box
+				       //1 - otherwise
     //store the time since a bat became informed of a given box
     map<string,ptime> informed_since;
     vector<string> daughters_hexids;

@@ -63,6 +63,9 @@ map<string,Box,bool(*)(string,string)> boxes(fn_pt);
 map<string,unsigned,bool(*)(string,string)> boxes_auxillary(fn_pt);
 map<unsigned,string,bool(*)(unsigned,unsigned)> boxes_auxillary_reversed(fn_pt2);
 
+/*stores the box programming: box_name->vector of bats programmed for this box*/
+map<string,vector<string> > box_programming;
+
 /*initialised by the flex scanner*/
 vector < pair<string,string> >  box_entries;
 /*auxillary*/

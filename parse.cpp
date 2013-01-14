@@ -666,6 +666,7 @@ int main(int argc, char**argv) {
             exit(1);
         }
         yylex();
+
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();
         /* remove this later (1)*/
@@ -829,6 +830,33 @@ int main(int argc, char**argv) {
             ref.add_movement(current.TimeOfEntry,box_ptr);
         }
         /**********************************************************/
+	/*after all bat objects have been created update them with box programming information*/
+	for (map<string,vector<string> >::iterator itr_box_prog = box_programming.begin(); itr_box_prog != box_programming.end(); itr_box_prog++) {	 
+	  string box = itr_box_prog->first;
+	  for (unsigned jj=0; jj<itr_box_prog->second.size(); jj++) {
+	    string programmed_bat = itr_box_prog->second[jj];	    
+	    if (programmed_bat == "all") {
+ 	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
+		mybool bool_true(true); 
+		bitr->second.disturbed_in_box[box] = bool_true;
+	      }
+	    }
+	    else if (programmed_bat == "none") {
+	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
+		mybool bool_false; //empty constructor would init this to false
+		bitr->second.disturbed_in_box[box] = bool_false;
+	      }
+	    }
+	    else {
+	      Bat &ref = bats_records[programmed_bat];
+	      if (ref.hexid != programmed_bat) {
+		cerr<<"Error: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; exit(1);
+	      }
+	      mybool &bool_ref = ref.disturbed_in_box[box];
+	      bool_ref.custom_boolean = true;
+	    }
+	  }	  
+	}
         //associate mothers to daughters
         for (map<string,unsigned int>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
 	    /*Here, if there is a bat with no records in the data from bats_map, it will be added to bats_records*/
