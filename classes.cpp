@@ -7,7 +7,7 @@ class Lf_pair; //represents a leading following pair
 /* ===================================================================== */
 
 /* ======================== CLASS DEFINITIONS ========================== */
-enum BatKnowledge {NAIIVE, EXPERIENCED}; //the knowledge of bats per box
+
 enum BoxStatus {DISCOVERED, UNDISCOVERED};
 
 class BatEntry {
@@ -68,7 +68,7 @@ public:
     string name;
     set<BatEntry,batEntryCompare> activity;
     BoxStatus status; //has this box been discovered or not
-    pair<string,ptime> discoveredBy; //who discovered the box and then
+    pair<string,ptime> discoveredBy; //who discovered the box and when
     ptime occupiedWhen; //when was the box occupied. must be pre-defined
     //all activities after this date are ignored!
     //if not occupied this time is set to +inf.
@@ -91,12 +91,27 @@ public:
     }
 };
 
-/*just like the normal boolean datatype, but this ensures that a bool is always inited to false*/
+/*just like the normal boolean datatype, but this ensures that a bool is always initted to a token value*/
+enum MYBOOLEAN {UNINITIALIZED, TRUE,FALSE};
 class mybool {
 public:
-  bool custom_boolean;
-  mybool() {custom_boolean = false;}
-  mybool(bool b) {custom_boolean=b;}
+  MYBOOLEAN custom_boolean;
+  mybool() {custom_boolean = FALSE; /*UNINITIALIZED;*/}
+  mybool(MYBOOLEAN b) {custom_boolean=b;}
+};
+
+//the knowledge of bats per box
+enum BatKnowledgeEnum {NAIIVE, EXPERIENCED}; 
+enum BatKnowledgeHow {UNDEFINED,SOCIAL, PERSONAL};
+class BatKnowledge {
+public:
+  BatKnowledgeEnum box_knowledge;
+  BatKnowledgeHow box_knowledge_how;
+  BatKnowledge() {box_knowledge=NAIIVE;box_knowledge_how=UNDEFINED;}
+  BatKnowledge(BatKnowledgeEnum b1, BatKnowledgeHow b2) {
+    box_knowledge = b1;
+    box_knowledge_how = b2;
+  }
 };
 
 class Bat {
@@ -150,7 +165,7 @@ public:
     }
     //is the bat informed about a particular box at a given time
     bool is_informed(string box_name, ptime when) {
-        if (box_knowledge[box_name] == NAIIVE) return false;
+        if (box_knowledge[box_name].box_knowledge == NAIIVE) return false;
         //sanity check
         if (informed_since[box_name] == not_a_date_time)
             cerr<<"Warning::Bat should have been informed."<<endl;
@@ -204,17 +219,20 @@ public:
     Bat *follower;
     string box_name;
     ptime tleader;
-    ptime tfollower;  
+    ptime tfollower;
+    bool leader_disturbed;
     bool valid; //valid only if abs(tleader-tfollower) <= "3-minute" rule. true by default
     Lf_pair() {
         valid=true;
         tleader=not_a_date_time;
         tfollower=not_a_date_time;
         box_name="";
+	leader_disturbed=false;
     }
     Lf_pair(Bat *B1, Bat *B2) {
         leader = B1;
         follower = B2;
+	leader_disturbed=false;
     }
     Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname) {
         leader = B1;
@@ -223,6 +241,7 @@ public:
         tfollower = tB2;
         box_name = bname;
         valid = true;
+	leader_disturbed=false;
     }
     Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname, bool v) {
         leader = B1;
@@ -231,6 +250,7 @@ public:
         tfollower = tB2;
         box_name = bname;
         valid = v;
+	leader_disturbed=false;
     }
     bool equals(Lf_pair &other) {
         if ((other.leader->hexid == leader->hexid && other.follower->hexid == follower->hexid) ||
@@ -245,13 +265,16 @@ public:
         tfollower = tB2;
         box_name = bname;
         valid = true;
+	leader_disturbed=false;
     }
     void print(ofstream *out) {
 	if (!out->good()) {
 	  cerr<<"Cannot print to output file: bad file descriptor"<<endl;
 	}
 	else
-	  (*out)<<leader->hexid<<" "<<follower->hexid<<" "<<to_iso_string(tleader)<<" "<<to_iso_string(tfollower)<<" "<<box_name<<endl;
+	  (*out)<<leader->hexid<<" "<<follower->hexid<<" "<<to_iso_string(tleader);
+	  (*out)<<" "<<to_iso_string(tfollower)<<" "<<box_name<<" "<<leader->box_knowledge[box_name].box_knowledge_how;
+	  (*out)<<" "<<leader->box_knowledge[box_name].box_knowledge<<endl;
     }
     time_duration get_lf_delta() {
         time_duration t = tfollower-tleader;

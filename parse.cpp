@@ -686,15 +686,16 @@ int main(int argc, char**argv) {
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6,ss7;
-	string outdir="output_files_2011";//"output_files_new_2";
+        stringstream ss5,ss6,ss7,ss8;
+	string outdir="output_files_new_2/2011_test";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_valid_time_diff = ss6.str();
 	ss7<<outdir<<"/lf_betweenness_preference"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	lf_pairs_valid_betweenness_preference=ss7.str();
-	
+	ss8<<outdir<<"/disturbed_leader"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	disturbed_leader=ss8.str();
         /***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
@@ -837,13 +838,13 @@ int main(int argc, char**argv) {
 	    string programmed_bat = itr_box_prog->second[jj];	    
 	    if (programmed_bat == "all") {
  	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
-		mybool bool_true(true); 
+		mybool bool_true(TRUE); 
 		bitr->second.disturbed_in_box[box] = bool_true;
 	      }
 	    }
 	    else if (programmed_bat == "none") {
 	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
-		mybool bool_false; //empty constructor would init this to false
+		mybool bool_false(FALSE);
 		bitr->second.disturbed_in_box[box] = bool_false;
 	      }
 	    }
@@ -853,7 +854,7 @@ int main(int argc, char**argv) {
 		cerr<<"Error: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; exit(1);
 	      }
 	      mybool &bool_ref = ref.disturbed_in_box[box];
-	      bool_ref.custom_boolean = true;
+	      bool_ref.custom_boolean = TRUE;
 	    }
 	  }	  
 	}
@@ -957,30 +958,37 @@ int main(int argc, char**argv) {
             //bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
             boxes[bx->name].status = DISCOVERED;
             //==================================================================
-            //int counter2 = 0;
-            for (unsigned i=0; i<box_bat_entries.size(); i++) {
-                //cout<<++counter2<<". Comparing "<<box_bat_entries[i].hexid<<" with ";
+            int counter2 = 0;
+            for (unsigned i=0; i<box_bat_entries.size(); i++) {		
+                box_bat_entries[i].print();
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
+		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];
+		if (b1_know_ref.box_knowledge_how == UNDEFINED)
+		  b1_know_ref.box_knowledge_how = PERSONAL;
+		
 		if (!b1_ref.is_not_a_date_time()) { //seen it before
 		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;
-		  if (t_d > knowledge_delay && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
-		    B1->box_knowledge[bx->name] = EXPERIENCED;
+		  if (t_d > knowledge_delay && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
+		    b1_know_ref.box_knowledge = EXPERIENCED;		     
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
 		  }
 		}		
-                lastSeen[box_bat_entries[i].hexid] = box_bat_entries[i].TimeOfEntry;
-                for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {
+                b1_ref = box_bat_entries[i].TimeOfEntry;
+                for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {		   
                     Bat *B2 = &bats_records[box_bat_entries[j].hexid];                  
-                    if (*B1 == *B2) {
+		    BatKnowledge &b2_know_ref = B2->box_knowledge[bx->name];
+		    if (b2_know_ref.box_knowledge_how == UNDEFINED)
+		      b2_know_ref.box_knowledge_how = PERSONAL;
+                    if (*B1 == *B2) 
                         /*cout<<"\t"<<"identical"<<endl;*/continue;   //no self lf events
-                    }
+                    
                     //first update this bat's knowledge about the given box, if necessary
                     ptime &ref = lastSeen[box_bat_entries[j].hexid];
                     if (ref.is_not_a_date_time()) ref = pos_infin;
                     time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;
                     if (td_update_knowledge > knowledge_delay && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
-                        B2->box_knowledge[bx->name] = EXPERIENCED;
+			b2_know_ref.box_knowledge = EXPERIENCED;			
                         B2->make_informed(bx->name,box_bat_entries[j].TimeOfEntry);
                     }
                     ref = box_bat_entries[j].TimeOfEntry;
@@ -993,10 +1001,27 @@ int main(int argc, char**argv) {
                     //if the pair is suitable, materialize it disregarding the time distance between B1 and B2
                     Lf_pair newPair;
                     if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
+			b2_know_ref.box_knowledge_how = SOCIAL;			
                         newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);
+			mybool &bool_ref = B1->disturbed_in_box[bx->name];
+			if (bool_ref.custom_boolean == UNINITIALIZED) {
+			  cerr<<"Error: Something went wrong with reading the box programming information"<<endl;
+			  //exit(1);
+			}
+			if (bool_ref.custom_boolean == TRUE)
+			  newPair.leader_disturbed = true;
                     }
                     else if (B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
+     			b1_know_ref.box_knowledge_how = SOCIAL;
                         newPair.init(B2,B1,box_bat_entries[j].TimeOfEntry,box_bat_entries[i].TimeOfEntry,bx->name);
+			mybool &bool_ref = B2->disturbed_in_box[bx->name];
+			if (bool_ref.custom_boolean == UNINITIALIZED) {
+			  cerr<<"Error: Something went wrong with reading the box programming information!"<<endl;
+			  cerr<<"Additional info: box "<<bx->name<<" bat: "<<B2->hexid<<endl;
+			  //exit(1);
+			}
+			if (bool_ref.custom_boolean == TRUE)
+			  newPair.leader_disturbed = true;
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
@@ -1029,9 +1054,27 @@ int main(int argc, char**argv) {
         //invalidate those pairs that violate lf_delay
         for (unsigned h=0; h<vec_lfpairs.size(); h++)
             vec_lfpairs[h].validate(lf_delay);
-
+	
+	/*output the leader_disturbed flag for all valid pairs*/
+	ofstream os(disturbed_leader.c_str(),ios::out);
+	if (!os.good()) {
+            perror(lf_time_diff.c_str());
+            exit(1);
+        }
+        cout<<"Outputting distrubed/undisturbed status for leaders in all valid lf events...";
+        for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+            if (vec_lfpairs[i].valid) {
+		if (vec_lfpairs[i].leader_disturbed)
+		  os<<1<<endl;
+		else
+		  os<<0<<endl;
+	    }
+	}   
+	os.close();
+	cout<<"DONE"<<endl;
         /*output all matched pairs*/
-        ofstream os(lf_time_diff.c_str(),ios::out);
+	/*
+        os.open(lf_time_diff.c_str(),ios::out);
         if (!os.good()) {
             perror(lf_time_diff.c_str());
             exit(1);
@@ -1039,14 +1082,15 @@ int main(int argc, char**argv) {
         for (unsigned i=0; i<vec_lfpairs.size(); i++)
 	    vec_lfpairs[i].print(&os);
             //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
-
         os.close();
+	*/
         //output only valid pairs, i.e. those which respect the max. allowed delay b/n leader and follower
         os.open(lf_valid_time_diff.c_str(),ios::out);
         if (!os.good()) {
             perror(lf_valid_time_diff.c_str());
             exit(1);
         }
+        cout<<"Outputting all valid lf pairs...";
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
             if (vec_lfpairs[i].valid) 
 	        vec_lfpairs[i].print(&os);
@@ -1054,21 +1098,23 @@ int main(int argc, char**argv) {
             
         }
         os.close();
-	
+	cout<<"DONE"<<endl;
 	/*output all valid lf pairs, sorted by time of recording the leader. used as input to plot betweenness preference*/
 	sort(vec_lfpairs.begin(),vec_lfpairs.end(),Lf_pair_compare);
 	os.open(lf_pairs_valid_betweenness_preference.c_str(),ios::out);
         if (!os.good()) {
             perror(lf_pairs_valid_betweenness_preference.c_str());
             exit(1);
-        }          
-        os<<"leader follower time_leader time_follower box_name"<<endl;
+        }
+        cout<<"Outputting all valid lf pairs reformatted for calculating betweenness preference...";
+        os<<"leader follower time_leader time_follower box_name leader-knows-how leader-knowledge"<<endl;
 	for (unsigned i=0; i<vec_lfpairs.size(); i++) {
             if (vec_lfpairs[i].valid) {
 		vec_lfpairs[i].print(&os);                
             }
         }
 	os.close();
+	cout<<"DONE"<<endl;
 	/*****************************************************/
         /*store the number of leading events that a leader has taken part of,
         regardless the number of following individuals*/
