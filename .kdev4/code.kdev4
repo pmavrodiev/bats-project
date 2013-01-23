@@ -2,7 +2,7 @@
 BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00c\x00o\x00d\x00e)
 
 [Launch]
-Launch Configurations=Launch Configuration 0,Launch Configuration 1,Launch Configuration 2
+Launch Configurations=Launch Configuration 0,Launch Configuration 2,Launch Configuration 3
 
 [Launch][Launch Configuration 0]
 Configured Launch Modes=execute
@@ -29,14 +29,14 @@ Use External Terminal=false
 Working Directory=file:///home/pmavrodiev/Documents/bats/result_files
 isExecutable=true
 
-[Launch][Launch Configuration 1]
+[Launch][Launch Configuration 2]
 Configured Launch Modes=execute
 Configured Launchers=nativeAppLauncher
-Name=bats_test
+Name=bats_2011
 Type=Native Application
 
-[Launch][Launch Configuration 1][Data]
-Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2008/test/ /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 9 5 030000
+[Launch][Launch Configuration 2][Data]
+Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2011/formatted-data/ /home/pmavrodiev/Documents/bats/result_files/bats_config_2011.txt 3 3 050000
 Debugger Shell=
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
@@ -54,14 +54,14 @@ Use External Terminal=false
 Working Directory=file:///home/pmavrodiev/Documents/bats/result_files
 isExecutable=true
 
-[Launch][Launch Configuration 2]
+[Launch][Launch Configuration 3]
 Configured Launch Modes=execute
 Configured Launchers=nativeAppLauncher
-Name=bats_2011
+Name=bats_test
 Type=Native Application
 
-[Launch][Launch Configuration 2][Data]
-Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2011/formatted-data/ /home/pmavrodiev/Documents/bats/result_files/bats_config_2011.txt 3 3 050000
+[Launch][Launch Configuration 3][Data]
+Arguments=/home/pmavrodiev/Documents/bats/data/TEST-DATA /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 3 5 050000
 Debugger Shell=
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing

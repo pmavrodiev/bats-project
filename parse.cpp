@@ -7,8 +7,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
-#include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
+//#include <boost/foreach.hpp>
+//#include <boost/tokenizer.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h>
+
+#include "classes.h"
 
 using namespace std;
 using namespace boost;
@@ -37,8 +39,6 @@ using namespace boost::gregorian;
 */
 
 
-
-#include "classes.cpp"
 #include "global_defs.cpp"
 
 /* =========================== GLOBAL FUNCTIONS ======================= */
@@ -851,7 +851,7 @@ int main(int argc, char**argv) {
 	    else {
 	      Bat &ref = bats_records[programmed_bat];
 	      if (ref.hexid != programmed_bat) {
-		cerr<<"Error: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; exit(1);
+		cerr<<"Error: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; //exit(1);
 	      }
 	      mybool &bool_ref = ref.disturbed_in_box[box];
 	      bool_ref.custom_boolean = TRUE;
@@ -938,9 +938,14 @@ int main(int argc, char**argv) {
         vector<Lf_pair> vec_lfpairs;
 
         //IMPORTANT: DO THE ANALYSIS ONE BOX AT A TIME!!!!
+	//ss_test used for testing 
+	stringstream ss_test;
+	ss_test<<outdir<<"/test"<<Year;
+	ofstream os_test(ss_test.str().c_str(),ios::out);
+	    
         for (to=multibats.begin(); to != multibats.end(); to++) {
             //find the boundaries of a box
-            cout<<"Box: "<<bx->name<<endl;
+            os_test<<"Box: "<<bx->name<<endl;
             //cout<<to->box_name<<endl;
             vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
             map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
@@ -958,9 +963,10 @@ int main(int argc, char**argv) {
             //bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
             boxes[bx->name].status = DISCOVERED;
             //==================================================================
-            int counter2 = 0;
+            //int counter2 = 0;
+	  
             for (unsigned i=0; i<box_bat_entries.size(); i++) {		
-                box_bat_entries[i].print();
+                box_bat_entries[i].print(&os_test);
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
 		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];
@@ -998,11 +1004,16 @@ int main(int argc, char**argv) {
                     if ((!B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) ||
                             (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)))
                         continue;
-                    //if the pair is suitable, materialize it disregarding the time distance between B1 and B2
-                    Lf_pair newPair;
+                    //if the pair is suitable, materialize it only if the time distance between B1 and B2 allows it
+                    time_duration tdur= box_bat_entries[i].TimeOfEntry-box_bat_entries[j].TimeOfEntry;
+		    if (tdur.is_negative()) tdur=tdur.invert_sign();
+		    if (tdur > lf_delay) continue; //skip the pair if invalid			
+	            Lf_pair newPair;
                     if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
+		        //cout<<"Making "<<B2->hexid<<" SOCIAL"<<endl;
+			//if (b2_know_ref.box_knowledge_how == UNDEFINED)
 			b2_know_ref.box_knowledge_how = SOCIAL;			
-                        newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);
+                        newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);			
 			mybool &bool_ref = B1->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
 			  cerr<<"Error: Something went wrong with reading the box programming information"<<endl;
@@ -1010,10 +1021,14 @@ int main(int argc, char**argv) {
 			}
 			if (bool_ref.custom_boolean == TRUE)
 			  newPair.leader_disturbed = true;
+			B1->insert_pair(newPair);
                     }
                     else if (B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
-     			b1_know_ref.box_knowledge_how = SOCIAL;
+     			//cout<<"entering"<<endl;
+		        //if (b1_know_ref.box_knowledge_how == UNDEFINED)
+			b1_know_ref.box_knowledge_how = SOCIAL;
                         newPair.init(B2,B1,box_bat_entries[j].TimeOfEntry,box_bat_entries[i].TimeOfEntry,bx->name);
+			
 			mybool &bool_ref = B2->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
 			  cerr<<"Error: Something went wrong with reading the box programming information!"<<endl;
@@ -1022,6 +1037,7 @@ int main(int argc, char**argv) {
 			}
 			if (bool_ref.custom_boolean == TRUE)
 			  newPair.leader_disturbed = true;
+			B2->insert_pair(newPair);
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
@@ -1036,9 +1052,9 @@ int main(int argc, char**argv) {
                             break;
                         }
                     }
-                    //if it doesn't exists simply add it
-                    if (!exists)
-                        current_box_pairs.push_back(newPair);
+                   //if it doesn't exists simply add it
+                   if (!exists)
+                       current_box_pairs.push_back(newPair);
                 } //end for (unsigned j=i; j<box_bat_entries.size(); j++)
             } //end for (unsigned j=i; j<box_bat_entries.size(); j++) {
             //==================================================================
@@ -1050,10 +1066,10 @@ int main(int argc, char**argv) {
             bx->name = from->box_name;
 
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
-
+	os_test.close();
         //invalidate those pairs that violate lf_delay
-        for (unsigned h=0; h<vec_lfpairs.size(); h++)
-            vec_lfpairs[h].validate(lf_delay);
+        //for (unsigned h=0; h<vec_lfpairs.size(); h++)
+          //  vec_lfpairs[h].validate(lf_delay);
 	
 	/*output the leader_disturbed flag for all valid pairs*/
 	ofstream os(disturbed_leader.c_str(),ios::out);
