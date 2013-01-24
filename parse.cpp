@@ -686,8 +686,8 @@ int main(int argc, char**argv) {
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6,ss7,ss8;
-	string outdir="output_files_new_2/2011_test";//"output_files_new_2";
+        stringstream ss5,ss6,ss7,ss8,ss9;
+	string outdir="output_files_new_2/2008_test";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -696,7 +696,9 @@ int main(int argc, char**argv) {
 	lf_pairs_valid_betweenness_preference=ss7.str();
 	ss8<<outdir<<"/disturbed_leader"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	disturbed_leader=ss8.str();
-        /***********************/
+        ss9<<outdir<<"/social-vs-personal-box-lf"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	social_personal_box_lf = ss9.str();
+	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
         /*remove that later (2)*/
@@ -945,7 +947,7 @@ int main(int argc, char**argv) {
 	    
         for (to=multibats.begin(); to != multibats.end(); to++) {
             //find the boundaries of a box
-            os_test<<"Box: "<<bx->name<<endl;
+            /*os_test*/cout<<"Box: "<<bx->name<<endl;
             //cout<<to->box_name<<endl;
             vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
             map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
@@ -961,7 +963,7 @@ int main(int argc, char**argv) {
             //the first bat is the discoverer, i.e. she is automatically experienced BUT not informed
             //bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;	    
             //bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
-            boxes[bx->name].status = DISCOVERED;
+	    bx->status = DISCOVERED;            
             //==================================================================
             //int counter2 = 0;
 	  
@@ -1010,8 +1012,6 @@ int main(int argc, char**argv) {
 		    if (tdur > lf_delay) continue; //skip the pair if invalid			
 	            Lf_pair newPair;
                     if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
-		        //cout<<"Making "<<B2->hexid<<" SOCIAL"<<endl;
-			//if (b2_know_ref.box_knowledge_how == UNDEFINED)
 			b2_know_ref.box_knowledge_how = SOCIAL;			
                         newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);			
 			mybool &bool_ref = B1->disturbed_in_box[bx->name];
@@ -1022,6 +1022,15 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean == TRUE)
 			  newPair.leader_disturbed = true;
 			B1->insert_pair(newPair);
+			if (b1_know_ref.box_knowledge_how == PERSONAL)
+			  bx->personal_lf_events++;
+			else if (b1_know_ref.box_knowledge_how == SOCIAL)
+			  bx->social_lf_events++;
+			else {
+			  cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			  exit(1);
+			}
+			bx->total_lf_events++;
                     }
                     else if (B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
      			//cout<<"entering"<<endl;
@@ -1038,6 +1047,15 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean == TRUE)
 			  newPair.leader_disturbed = true;
 			B2->insert_pair(newPair);
+			if (b2_know_ref.box_knowledge_how == PERSONAL)
+			  bx->personal_lf_events++;
+			else if (b2_know_ref.box_knowledge_how == SOCIAL)
+			  bx->social_lf_events++;
+			else {
+			  cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			  exit(1);
+			}
+			bx->total_lf_events++;
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
@@ -1063,7 +1081,9 @@ int main(int argc, char**argv) {
             from=to;
             from++; //move the "from" pointer to the first entry of the new box
             if (from == multibats.end()) break;
-            bx->name = from->box_name;
+	    //TODO 
+	    bx = &boxes[from->box_name];
+            //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
 
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
 	os_test.close();
@@ -1071,8 +1091,21 @@ int main(int argc, char**argv) {
         //for (unsigned h=0; h<vec_lfpairs.size(); h++)
           //  vec_lfpairs[h].validate(lf_delay);
 	
+	/*output the social vs. personal lf events for each box*/
+	//create the needed data structure
+	ofstream os(social_personal_box_lf.c_str(),ios::out);
+	if (!os.good()) {
+            perror(social_personal_box_lf.c_str());
+            exit(1);
+        }
+	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {
+	  cout<<b_itr->first<<" "<<b_itr->second.personal_lf_events<<"+";
+	  cout<<b_itr->second.social_lf_events<<"="<<b_itr->second.total_lf_events<<endl;
+	}
+	
+	os.close();
 	/*output the leader_disturbed flag for all valid pairs*/
-	ofstream os(disturbed_leader.c_str(),ios::out);
+	os.open(disturbed_leader.c_str(),ios::out);
 	if (!os.good()) {
             perror(lf_time_diff.c_str());
             exit(1);

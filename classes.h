@@ -85,6 +85,11 @@ public:
     BoxStatus status; //has this box been discovered or not
     pair<string,ptime> discoveredBy; //who discovered the box and when
     ptime occupiedWhen; //when was the box occupied. must be pre-defined
+    /*sanity check: social_lf_events+personal_lf_events=total_lf_events*/
+    unsigned total_lf_events; //total # of lf events to this box
+    unsigned social_lf_events; //total # of social lf events to this box
+    unsigned personal_lf_events; //total # of personal lf events to this box
+    
     //all activities after this date are ignored!
     //if not occupied this time is set to +inf.
     Box(short Type, string Name, ptime occ);

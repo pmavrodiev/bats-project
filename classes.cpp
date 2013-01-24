@@ -37,10 +37,16 @@ Box::Box(short Type, string Name, ptime occ) {
   name = Name;
   this->status = UNDISCOVERED;
   occupiedWhen = occ;
+  total_lf_events = 0;
+  social_lf_events = 0;
+  personal_lf_events = 0;
 }
 Box::Box() {
   status = UNDISCOVERED;
   occupiedWhen = pos_infin;
+  total_lf_events = 0;
+  social_lf_events = 0;
+  personal_lf_events = 0;
 }
 void Box::print() {
   set<BatEntry,batEntryCompare>::iterator i;
