@@ -31,6 +31,15 @@ void BatEntry::print(ostream *out) const {
 }
 
 
+LF_FLAG::LF_FLAG() {
+  this_lf_flag = UNINIT;
+}
+
+LF_FLAG::LF_FLAG(lf_flag_types other) {
+  this_lf_flag = other;
+}
+
+
 
 Box::Box(short Type, string Name, ptime occ) {
   type = Type;
@@ -38,15 +47,21 @@ Box::Box(short Type, string Name, ptime occ) {
   this->status = UNDISCOVERED;
   occupiedWhen = occ;
   total_lf_events = 0;
-  social_lf_events = 0;
-  personal_lf_events = 0;
+  social_ud_lf_events= 0; 
+  social_d_lf_events= 0; 
+  personal_ud_lf_events= 0; 
+  personal_d_lf_events= 0;   
+  discoveredBy = pair<string,ptime>("",pos_infin);
 }
 Box::Box() {
   status = UNDISCOVERED;
   occupiedWhen = pos_infin;
   total_lf_events = 0;
-  social_lf_events = 0;
-  personal_lf_events = 0;
+  social_ud_lf_events= 0; 
+  social_d_lf_events= 0; 
+  personal_ud_lf_events= 0; 
+  personal_d_lf_events= 0;   
+  discoveredBy = pair<string,ptime>("",pos_infin);
 }
 void Box::print() {
   set<BatEntry,batEntryCompare>::iterator i;
@@ -54,6 +69,22 @@ void Box::print() {
   for (i=activity.begin(); i != activity.end(); i++) {
     i->print(&cout);
   }
+}
+
+void Box::discovered(string bat_id, ptime when) {
+  if (!discoveredBy.second.is_pos_infinity()) {
+    cerr<<"Error: Box already discovered"<<endl;exit(1);
+  }
+  discoveredBy.second=when;
+  discoveredBy.first=bat_id;
+}
+
+time_duration Box::getOccupiedDiscoveredDelta() {
+  if  (occupiedWhen.is_not_a_date_time() || discoveredBy.second.is_not_a_date_time()) {
+    cerr<<"Error: Should never happen"<<endl; exit(1);
+  } 
+  time_duration td = occupiedWhen - discoveredBy.second;
+  return (td);
 }
 
 
@@ -89,8 +120,9 @@ Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname, bool v) {
 }
 
 bool Lf_pair::equals(Lf_pair &other) {
-  if ((other.leader->hexid == leader->hexid && other.follower->hexid == follower->hexid) ||
-      (other.leader->hexid == follower->hexid && other.follower->hexid == leader->hexid))
+  if (((other.leader->hexid == leader->hexid && other.follower->hexid == follower->hexid) ||
+      (other.leader->hexid == follower->hexid && other.follower->hexid == leader->hexid)) &&
+      other.box_name == box_name)
      return true;
   return false;
 }
@@ -151,18 +183,22 @@ BatKnowledge::BatKnowledge(BatKnowledgeEnum b1, BatKnowledgeHow b2) {
     box_knowledge_how = b2;
 }
 
-void Bat::insert_pair(Lf_pair lfp) {
+//true if pair is inserted, false otherwise
+bool Bat::insert_pair(Lf_pair lfp) {
   bool exists=false;
   for (unsigned k=0; k<my_lfpairs.size(); k++) {
     if (my_lfpairs[k].equals(lfp)) {
       if (lfp.get_lf_delta() < my_lfpairs[k].get_lf_delta())
 	my_lfpairs[k]=lfp;
-	exists=true;
-	break;
+      exists=true;
+      break;
     }
   }
-  if (!exists)
+  if (!exists) {
     my_lfpairs.push_back(lfp);
+    return true;
+  }
+  return false;
 }
     
 void Bat::add_movement(ptime Time, Box * box_ptr) {

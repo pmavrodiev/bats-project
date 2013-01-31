@@ -1,5 +1,5 @@
 rm(list = ls())
-setwd("/home/pmavrodiev/Dropbox/code")
+setwd("/home/pmavrodiev/Documents/bats/data")
 
 library(png)
 library(Cairo)
@@ -10,7 +10,7 @@ library(lattice)
 library(grid)
 
 
-boxes.data = read.table("box-locations.txt",fill=TRUE,header=TRUE)
+boxes.data = read.table("box-locations-2011.txt",fill=TRUE,header=TRUE)
 #get coordinates of the rectangular map
 x.min=min(boxes.data[,"x"],na.rm=TRUE);y.min=min(boxes.data[,"y"],na.rm=TRUE)
 x.max=max(boxes.data[,"x"],na.rm=TRUE);y.max=max(boxes.data[,"y"],na.rm=TRUE)
@@ -21,7 +21,7 @@ x.min=min(boxes.data[,"x"],na.rm=TRUE);y.min=min(boxes.data[,"y"],na.rm=TRUE)
 x.max=max(boxes.data[,"x"],na.rm=TRUE);y.max=max(boxes.data[,"y"],na.rm=TRUE)
 ####ggplot2
 setwd("/home/pmavrodiev/Documents/bats/result_files")
-CairoPDF(file="box-locations.pdf",width=10,height=10)
+CairoPDF(file="box-locations-2011.pdf",width=10,height=10)
 width=9
 d=data.frame(x1=boxes.data[!is.na(boxes.data[,"x"]),"x"], 
              x2=boxes.data[!is.na(boxes.data[,"x"]),"x"]+width, 
@@ -30,7 +30,7 @@ d=data.frame(x1=boxes.data[!is.na(boxes.data[,"x"]),"x"],
              r=boxes.data[!is.na(boxes.data[,"box_id"]),"box_name"])
 p=ggplot()
 p=p+scale_x_continuous(name="x",limits=c(0,max(x.max+16,y.max+16)))
-p=p+scale_y_continuous(name="y",limits=c(0,max(x.max+16,y.max+16)))+coord_fixed()
+p=p+scale_y_continuous(name="y",limits=c(0,150))
 
 p=p+geom_rect(data=d, mapping=aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2),
               color="blue",fill="blue")

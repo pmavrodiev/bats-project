@@ -496,5 +496,5 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 
 /*output files*/
 string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader;
-string social_personal_box_lf;
+string social_personal_box_lf,bats_lead_follow_behav,most_detailed;
 /* ==================================================================== */

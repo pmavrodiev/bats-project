@@ -686,8 +686,8 @@ int main(int argc, char**argv) {
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6,ss7,ss8,ss9;
-	string outdir="output_files_new_2/2008_test";//"output_files_new_2";
+        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11;
+	string outdir="output_files_new_2/2011";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -698,6 +698,10 @@ int main(int argc, char**argv) {
 	disturbed_leader=ss8.str();
         ss9<<outdir<<"/social-vs-personal-box-lf"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	social_personal_box_lf = ss9.str();
+	ss10<<outdir<<"/bats-lead-follow-behav"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	bats_lead_follow_behav = ss10.str();
+	ss11<<outdir<<"/most-detailed"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	most_detailed = ss11.str();
 	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
@@ -946,8 +950,7 @@ int main(int argc, char**argv) {
 	ofstream os_test(ss_test.str().c_str(),ios::out);
 	    
         for (to=multibats.begin(); to != multibats.end(); to++) {
-            //find the boundaries of a box
-            /*os_test*/cout<<"Box: "<<bx->name<<endl;
+            //find the boundaries of a box         
             //cout<<to->box_name<<endl;
             vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
             map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
@@ -959,16 +962,13 @@ int main(int argc, char**argv) {
                 box_bat_entries.push_back(*cur);
                 cur++;
             }
-            /*main pairing loop. no enforcement of max. leader-follower time difference*/
-            //the first bat is the discoverer, i.e. she is automatically experienced BUT not informed
-            //bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;	    
-            //bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
-	    bx->status = DISCOVERED;            
+            /*main pairing loop. */
+	    bx->status = DISCOVERED;
+	    bx->discovered(box_bat_entries[0].hexid,box_bat_entries[0].TimeOfEntry);	    
             //==================================================================
-            //int counter2 = 0;
-	  
-            for (unsigned i=0; i<box_bat_entries.size(); i++) {		
-                box_bat_entries[i].print(&os_test);
+            //int counter2 = 0;	   
+            for (unsigned i=0; i<box_bat_entries.size(); i++) {
+                box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
 		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];
@@ -976,7 +976,7 @@ int main(int argc, char**argv) {
 		  b1_know_ref.box_knowledge_how = PERSONAL;
 		
 		if (!b1_ref.is_not_a_date_time()) { //seen it before
-		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;
+		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
 		  if (t_d > knowledge_delay && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
 		    b1_know_ref.box_knowledge = EXPERIENCED;		     
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
@@ -990,53 +990,80 @@ int main(int argc, char**argv) {
 		      b2_know_ref.box_knowledge_how = PERSONAL;
                     if (*B1 == *B2) 
                         /*cout<<"\t"<<"identical"<<endl;*/continue;   //no self lf events
-                    
+
                     //first update this bat's knowledge about the given box, if necessary
-                    ptime &ref = lastSeen[box_bat_entries[j].hexid];
-                    if (ref.is_not_a_date_time()) ref = pos_infin;
-                    time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;
-                    if (td_update_knowledge > knowledge_delay && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
+                    ptime &ref = lastSeen[B2->hexid];
+                    if (ref.is_not_a_date_time()) 
+		      ref = pos_infin;
+                    time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;                    
+		    if (td_update_knowledge > knowledge_delay && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
 			b2_know_ref.box_knowledge = EXPERIENCED;			
                         B2->make_informed(bx->name,box_bat_entries[j].TimeOfEntry);
                     }
-                    ref = box_bat_entries[j].TimeOfEntry;
-                    //cout<<B1->hexid<<": "<<B1->informed(bx->name,box_bat_entries[i].TimeOfEntry)<<endl;
-                    //cout<<B2->hexid<<": "<<B2->informed(bx->name,box_bat_entries[j].TimeOfEntry)<<endl;
+                    ref = box_bat_entries[j].TimeOfEntry;               
                     //are both bats informed or are both naiive about that box at this time?
                     if ((!B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) ||
                             (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)))
                         continue;
                     //if the pair is suitable, materialize it only if the time distance between B1 and B2 allows it
-                    time_duration tdur= box_bat_entries[i].TimeOfEntry-box_bat_entries[j].TimeOfEntry;
+                    time_duration tdur= b1_ref -ref;
 		    if (tdur.is_negative()) tdur=tdur.invert_sign();
-		    if (tdur > lf_delay) continue; //skip the pair if invalid			
+		    if (tdur > lf_delay) continue; //skip the pair if invalid
+		    /*both bats B1 and B2 can now be considered to have taken part in an lf-event*/
+		    B1->part_of_lf_event = true;
+		    B2->part_of_lf_event = true;
 	            Lf_pair newPair;
-                    if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
-			b2_know_ref.box_knowledge_how = SOCIAL;			
-                        newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);			
+                    if (B1->is_informed(bx->name,b1_ref)) {
+			b2_know_ref.box_knowledge_how = SOCIAL;		
+                        newPair.init(B1,B2,b1_ref,ref,bx->name);			
 			mybool &bool_ref = B1->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
 			  cerr<<"Error: Something went wrong with reading the box programming information"<<endl;
-			  //exit(1);
-			}
-			if (bool_ref.custom_boolean == TRUE)
-			  newPair.leader_disturbed = true;
-			B1->insert_pair(newPair);
-			if (b1_know_ref.box_knowledge_how == PERSONAL)
-			  bx->personal_lf_events++;
-			else if (b1_know_ref.box_knowledge_how == SOCIAL)
-			  bx->social_lf_events++;
-			else {
-			  cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
 			  exit(1);
 			}
-			bx->total_lf_events++;
+			if (bool_ref.custom_boolean)
+			  newPair.leader_disturbed = true;
+			bool insert_success = B1->insert_pair(newPair);			
+			if (insert_success) {			  
+			  LF_FLAG lf;
+			  if (b1_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
+			    bx->personal_ud_lf_events++;lf.this_lf_flag=PERSONAL_UNDISTURBED;
+			  }
+			  else if (b1_know_ref.box_knowledge_how == PERSONAL && bool_ref.custom_boolean) {
+			    bx->personal_d_lf_events++;lf.this_lf_flag=PERSONAL_DISTURBED;
+			  }
+			  else if (b1_know_ref.box_knowledge_how == SOCIAL && !bool_ref.custom_boolean) {
+			    bx->social_ud_lf_events++;lf.this_lf_flag=SOCIAL_UNDISTURBED;
+			  }
+ 			  else if (b1_know_ref.box_knowledge_how == SOCIAL && bool_ref.custom_boolean) {
+			    bx->social_d_lf_events++;lf.this_lf_flag=SOCIAL_DISTURBED;
+			  }
+			  else {
+			    cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			    exit(1);
+			  }
+			  bx->total_lf_events++;
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B1->hexid];
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.second.this_lf_flag = lf.this_lf_flag;lf_ref.first=1;}
+			  else {
+			    if (lf_ref.first == 0) {cerr<<"Error: Sanity check failed";exit(1);}//sanity check 
+			    if (lf_ref.second.this_lf_flag != lf.this_lf_flag) {//sanity check 
+			      cerr<<"Error: Sanity check failed - statuses mismatch";
+			      exit(1);			      
+			    }
+			    lf_ref.first++;
+			  }		  
+			}
                     }
-                    else if (B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
-     			//cout<<"entering"<<endl;
-		        //if (b1_know_ref.box_knowledge_how == UNDEFINED)
+                    else if (B2->is_informed(bx->name,ref)) {			
 			b1_know_ref.box_knowledge_how = SOCIAL;
-                        newPair.init(B2,B1,box_bat_entries[j].TimeOfEntry,box_bat_entries[i].TimeOfEntry,bx->name);
+                        newPair.init(B2,B1,ref,b1_ref,bx->name);
+			
+						
+			if (!B2->hexid.compare("0006CC3D98") && !bx->name.compare("67a")) {
+			  cout<<B2->hexid<<" "<<b2_know_ref.box_knowledge_how<<endl;
+			}
+
 			
 			mybool &bool_ref = B2->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
@@ -1044,18 +1071,39 @@ int main(int argc, char**argv) {
 			  cerr<<"Additional info: box "<<bx->name<<" bat: "<<B2->hexid<<endl;
 			  //exit(1);
 			}
-			if (bool_ref.custom_boolean == TRUE)
+			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
-			B2->insert_pair(newPair);
-			if (b2_know_ref.box_knowledge_how == PERSONAL)
-			  bx->personal_lf_events++;
-			else if (b2_know_ref.box_knowledge_how == SOCIAL)
-			  bx->social_lf_events++;
-			else {
-			  cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
-			  exit(1);
+			bool insert_success = B2->insert_pair(newPair);			
+			if (insert_success) {
+			  LF_FLAG lf;
+			  if (b2_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
+			    bx->personal_ud_lf_events++;lf.this_lf_flag=PERSONAL_UNDISTURBED;
+			  }
+			  else if (b2_know_ref.box_knowledge_how == PERSONAL && bool_ref.custom_boolean) {
+			    bx->personal_d_lf_events++;lf.this_lf_flag=PERSONAL_DISTURBED;
+			  }
+			  else if (b2_know_ref.box_knowledge_how == SOCIAL && !bool_ref.custom_boolean) {
+			    bx->social_ud_lf_events++;lf.this_lf_flag=SOCIAL_UNDISTURBED;
+			  }
+ 			  else if (b2_know_ref.box_knowledge_how == SOCIAL && bool_ref.custom_boolean) {
+			    bx->social_d_lf_events++;lf.this_lf_flag=SOCIAL_DISTURBED;
+			  }
+			  else {
+			    cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			    exit(1);
+			  }
+			  bx->total_lf_events++;
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B2->hexid];
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.second.this_lf_flag = lf.this_lf_flag;lf_ref.first=1;}
+			  else {
+			    if (lf_ref.first == 0) {cerr<<"Error: Sanity check failed";exit(1);}//sanity check 
+			    if (lf_ref.second.this_lf_flag != lf.this_lf_flag) {//sanity check 
+			      cerr<<"Error: Sanity check failed - statuses mismatch";
+			      exit(1);			      
+			    }
+			    lf_ref.first++;
+			  }		  			 
 			}
-			bx->total_lf_events++;
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
@@ -1081,7 +1129,6 @@ int main(int argc, char**argv) {
             from=to;
             from++; //move the "from" pointer to the first entry of the new box
             if (from == multibats.end()) break;
-	    //TODO 
 	    bx = &boxes[from->box_name];
             //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
 
@@ -1098,12 +1145,69 @@ int main(int argc, char**argv) {
             perror(social_personal_box_lf.c_str());
             exit(1);
         }
+        //map<ptime,string> tmp_set;
+        cout<<"Outputting personal and social lf events for each box...";
 	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {
-	  cout<<b_itr->first<<" "<<b_itr->second.personal_lf_events<<"+";
-	  cout<<b_itr->second.social_lf_events<<"="<<b_itr->second.total_lf_events<<endl;
-	}
-	
+	  //tmp_set[b_itr->second.discoveredBy.second] = b_itr->first;
+	  
+	  os<<b_itr->first<<" "<<b_itr->second.personal_d_lf_events+b_itr->second.personal_ud_lf_events<<" ";
+	  os<<b_itr->second.social_d_lf_events+b_itr->second.social_ud_lf_events<<" "<<b_itr->second.total_lf_events<<" ";
+	  if (b_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
+	    os<<"NA"<<endl;
+	  else
+	    os<<b_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0<<endl;
+	}	
 	os.close();
+	cout<<"DONE"<<endl;
+	cout<<"Outputting detailed box statistics...";
+	os.open(most_detailed.c_str(),ios::out);
+	if (!os.good()) {
+            perror(most_detailed.c_str());
+            exit(1);
+        }
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  Box *b = &box_itr->second;
+	  os<<b->name<<" ";
+	  for (map<string, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
+	    os<<lf_itr->first<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"\t";
+	  }
+	  os<<endl;
+	}
+	os.close();
+	cout<<"DONE"<<endl;	
+	/*delme*/
+	//for (map<ptime,string>::iterator jj=tmp_set.begin(); jj!=tmp_set.end(); jj++)
+	  //cout<<jj->second<<" "<<to_simple_string(jj->first)<<endl;
+	/******/
+	/*output the lf behaviour of each bat for each of her lf events*/
+	cout<<"Outputting lf behaviour for each bat for each of her lf events...";
+	os.open(bats_lead_follow_behav.c_str(),ios::out);
+	
+	for (map<string,Bat>::iterator b_itr=bats_records.begin(); b_itr!=bats_records.end(); b_itr++) {
+	  for (unsigned k=0; k<b_itr->second.my_lfpairs.size(); k++) {
+	    Lf_pair *lf_ptr = &b_itr->second.my_lfpairs[k];
+	    //sanity check
+	    if (b_itr->second.hexid.compare(lf_ptr->getLeaderId()))  //not equal if true
+	     {cerr<<"Sanity checks failed: Bats ids do not match"<<endl; exit(1);}
+	    os<<b_itr->second.hexid<<" "<<to_iso_extended_string(lf_ptr->tleader)<<" ";
+	    //LF_FLAG my_lf_flag;
+	    if (!lf_ptr->leader_disturbed && 
+		b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == PERSONAL)
+		  os<<PERSONAL_UNDISTURBED<<endl;
+	    else if (lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == PERSONAL)
+		  os<<PERSONAL_DISTURBED<<endl;
+	    else if (!lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == SOCIAL)
+		  os<<SOCIAL_UNDISTURBED<<endl;
+	    else if (lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == SOCIAL)
+		  os<<SOCIAL_DISTURBED<<endl;
+	    else {cerr<<"Sanity checks failed: impossible combination"<<endl;}	
+	  }
+	}	
+	os.close();
+	cout<<"DONE"<<endl;
 	/*output the leader_disturbed flag for all valid pairs*/
 	os.open(disturbed_leader.c_str(),ios::out);
 	if (!os.good()) {

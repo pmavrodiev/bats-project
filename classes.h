@@ -75,7 +75,14 @@ struct batEntryCompare2 {
     }
 };
 
-
+enum lf_flag_types {UNINIT,PERSONAL_UNDISTURBED, PERSONAL_DISTURBED, SOCIAL_UNDISTURBED,SOCIAL_DISTURBED};
+class LF_FLAG {
+public:
+    lf_flag_types this_lf_flag;
+    LF_FLAG();
+    LF_FLAG(lf_flag_types other);
+};
+  
 
 class Box {
 public:
@@ -87,9 +94,13 @@ public:
     ptime occupiedWhen; //when was the box occupied. must be pre-defined
     /*sanity check: social_lf_events+personal_lf_events=total_lf_events*/
     unsigned total_lf_events; //total # of lf events to this box
-    unsigned social_lf_events; //total # of social lf events to this box
-    unsigned personal_lf_events; //total # of personal lf events to this box
-    
+    unsigned social_ud_lf_events; //total # of social undisturbed lf events
+    unsigned social_d_lf_events; //total # of social disturbed lf events
+    unsigned personal_ud_lf_events; //total # of personal undisturbed lf events 
+    unsigned personal_d_lf_events; //total # of personal disturbed lf events 
+    map<string, pair<unsigned,LF_FLAG> > lf_events; //bat_id -> <#lf events,status>
+    void discovered(string bat_id,ptime when);
+    time_duration getOccupiedDiscoveredDelta();
     //all activities after this date are ignored!
     //if not occupied this time is set to +inf.
     Box(short Type, string Name, ptime occ);
@@ -123,7 +134,7 @@ public:
 bool Lf_pair_compare(Lf_pair lf1, Lf_pair lf2);
 
 /*just like the normal boolean datatype, but this ensures that a bool is always initted to a token value*/
-enum MYBOOLEAN {UNINITIALIZED, TRUE,FALSE};
+enum MYBOOLEAN {UNINITIALIZED=2, TRUE=1,FALSE=0};
 class mybool {
 public:
   MYBOOLEAN custom_boolean;
@@ -141,6 +152,7 @@ public:
   BatKnowledge();
   BatKnowledge(BatKnowledgeEnum b1, BatKnowledgeHow b2);
 };
+
 
 class Bat {
 private:
@@ -175,7 +187,7 @@ public:
     map<string,ptime> informed_since;
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
-    void insert_pair(Lf_pair lfp);    
+    bool insert_pair(Lf_pair lfp);    //true if pair is inserted, false otherwise
     void add_movement(ptime Time, Box * box_ptr);
     //make the bat informed
     void make_informed(string box_name,ptime informed_time);

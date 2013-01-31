@@ -36,7 +36,7 @@ Name=bats_2011
 Type=Native Application
 
 [Launch][Launch Configuration 2][Data]
-Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2011/formatted-data/ /home/pmavrodiev/Documents/bats/result_files/bats_config_2011.txt 3 3 050000
+Arguments=/home/pmavrodiev/Documents/bats/data/GB2_2011/formatted-data/ /home/pmavrodiev/Documents/bats/result_files/bats_config_2011.txt 3 5 050000
 Debugger Shell=
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
