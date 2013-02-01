@@ -6,7 +6,7 @@ map<string,string> monaten; //maps month names to month numbers
 string Year;
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
-time_duration knowledge_delay;// = minutes(3);
+time_duration roundtrip_time;// = minutes(3);
 //maximum allowed delay between a leader and a follower
 time_duration lf_delay;// = minutes(5);
 //min. time interval for flying between two boxes

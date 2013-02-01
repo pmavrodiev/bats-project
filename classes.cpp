@@ -82,7 +82,10 @@ void Box::discovered(string bat_id, ptime when) {
 time_duration Box::getOccupiedDiscoveredDelta() {
   if  (occupiedWhen.is_not_a_date_time() || discoveredBy.second.is_not_a_date_time()) {
     cerr<<"Error: Should never happen"<<endl; exit(1);
-  } 
+  }
+  if (discoveredBy.second.is_pos_infinity())  
+    return time_duration(0,0,0,0);
+  
   time_duration td = occupiedWhen - discoveredBy.second;
   return (td);
 }

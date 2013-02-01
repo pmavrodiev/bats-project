@@ -670,7 +670,7 @@ int main(int argc, char**argv) {
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();
         /* remove this later (1)*/
-        /* argv[2] = knowledge_delay
+        /* argv[2] = roundtrip time
          * argv[3] = lf_delay
          * argv[4] = occupation_deadline
          */
@@ -681,26 +681,26 @@ int main(int argc, char**argv) {
         int tt,gg;
         foo>>tt;
         moo>>gg;
-        knowledge_delay = minutes(tt);
+        roundtrip_time = minutes(tt);
         lf_delay = minutes(gg);
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11;
-	string outdir="output_files_new_2/2011";//"output_files_new_2";
-        ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	string outdir="output_files_new_2/2008";//"output_files_new_2";
+        ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
-        ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+        ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_valid_time_diff = ss6.str();
-	ss7<<outdir<<"/lf_betweenness_preference"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ss7<<outdir<<"/lf_betweenness_preference"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	lf_pairs_valid_betweenness_preference=ss7.str();
-	ss8<<outdir<<"/disturbed_leader"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ss8<<outdir<<"/disturbed_leader"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	disturbed_leader=ss8.str();
-        ss9<<outdir<<"/social-vs-personal-box-lf"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+        ss9<<outdir<<"/social-vs-personal-box-lf"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	social_personal_box_lf = ss9.str();
-	ss10<<outdir<<"/bats-lead-follow-behav"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ss10<<outdir<<"/bats-lead-follow-behav"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	bats_lead_follow_behav = ss10.str();
-	ss11<<outdir<<"/most-detailed"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ss11<<outdir<<"/most-detailed"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	most_detailed = ss11.str();
 	/***********************/
         base_dir = argv[0];
@@ -977,7 +977,7 @@ int main(int argc, char**argv) {
 		
 		if (!b1_ref.is_not_a_date_time()) { //seen it before
 		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
-		  if (t_d > knowledge_delay && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
+		  if (t_d > roundtrip_time && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
 		    b1_know_ref.box_knowledge = EXPERIENCED;		     
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
 		  }
@@ -996,7 +996,7 @@ int main(int argc, char**argv) {
                     if (ref.is_not_a_date_time()) 
 		      ref = pos_infin;
                     time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;                    
-		    if (td_update_knowledge > knowledge_delay && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
+		    if (td_update_knowledge > roundtrip_time && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
 			b2_know_ref.box_knowledge = EXPERIENCED;			
                         B2->make_informed(bx->name,box_bat_entries[j].TimeOfEntry);
                     }
@@ -1044,26 +1044,14 @@ int main(int argc, char**argv) {
 			  }
 			  bx->total_lf_events++;
 			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B1->hexid];
-			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.second.this_lf_flag = lf.this_lf_flag;lf_ref.first=1;}
-			  else {
-			    if (lf_ref.first == 0) {cerr<<"Error: Sanity check failed";exit(1);}//sanity check 
-			    if (lf_ref.second.this_lf_flag != lf.this_lf_flag) {//sanity check 
-			      cerr<<"Error: Sanity check failed - statuses mismatch";
-			      exit(1);			      
-			    }
-			    lf_ref.first++;
-			  }		  
+			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}
+			  else lf_ref.first++;
 			}
                     }
                     else if (B2->is_informed(bx->name,ref)) {			
 			b1_know_ref.box_knowledge_how = SOCIAL;
-                        newPair.init(B2,B1,ref,b1_ref,bx->name);
-			
-						
-			if (!B2->hexid.compare("0006CC3D98") && !bx->name.compare("67a")) {
-			  cout<<B2->hexid<<" "<<b2_know_ref.box_knowledge_how<<endl;
-			}
-
+                        newPair.init(B2,B1,ref,b1_ref,bx->name);						
 			
 			mybool &bool_ref = B2->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
@@ -1073,8 +1061,8 @@ int main(int argc, char**argv) {
 			}
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
-			bool insert_success = B2->insert_pair(newPair);			
-			if (insert_success) {
+			bool insert_success = B2->insert_pair(newPair);
+			if (insert_success) {			  			
 			  LF_FLAG lf;
 			  if (b2_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
 			    bx->personal_ud_lf_events++;lf.this_lf_flag=PERSONAL_UNDISTURBED;
@@ -1094,15 +1082,10 @@ int main(int argc, char**argv) {
 			  }
 			  bx->total_lf_events++;
 			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B2->hexid];
-			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.second.this_lf_flag = lf.this_lf_flag;lf_ref.first=1;}
-			  else {
-			    if (lf_ref.first == 0) {cerr<<"Error: Sanity check failed";exit(1);}//sanity check 
-			    if (lf_ref.second.this_lf_flag != lf.this_lf_flag) {//sanity check 
-			      cerr<<"Error: Sanity check failed - statuses mismatch";
-			      exit(1);			      
-			    }
-			    lf_ref.first++;
-			  }		  			 
+			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}			  
+			  else lf_ref.first++;
+			   
 			}
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
@@ -1133,23 +1116,20 @@ int main(int argc, char**argv) {
             //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
 
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
-	os_test.close();
+	
         //invalidate those pairs that violate lf_delay
         //for (unsigned h=0; h<vec_lfpairs.size(); h++)
           //  vec_lfpairs[h].validate(lf_delay);
 	
-	/*output the social vs. personal lf events for each box*/
-	//create the needed data structure
+	/*output the social vs. personal lf events for each box*/	
+	/*
 	ofstream os(social_personal_box_lf.c_str(),ios::out);
 	if (!os.good()) {
             perror(social_personal_box_lf.c_str());
             exit(1);
         }
-        //map<ptime,string> tmp_set;
         cout<<"Outputting personal and social lf events for each box...";
-	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {
-	  //tmp_set[b_itr->second.discoveredBy.second] = b_itr->first;
-	  
+	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {  
 	  os<<b_itr->first<<" "<<b_itr->second.personal_d_lf_events+b_itr->second.personal_ud_lf_events<<" ";
 	  os<<b_itr->second.social_d_lf_events+b_itr->second.social_ud_lf_events<<" "<<b_itr->second.total_lf_events<<" ";
 	  if (b_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
@@ -1159,8 +1139,9 @@ int main(int argc, char**argv) {
 	}	
 	os.close();
 	cout<<"DONE"<<endl;
+	*/
 	cout<<"Outputting detailed box statistics...";
-	os.open(most_detailed.c_str(),ios::out);
+	ofstream os(most_detailed.c_str(),ios::out);
 	if (!os.good()) {
             perror(most_detailed.c_str());
             exit(1);
@@ -1171,14 +1152,17 @@ int main(int argc, char**argv) {
 	  for (map<string, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
 	    os<<lf_itr->first<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"\t";
 	  }
+	  os<<box_itr->second.personal_d_lf_events+box_itr->second.personal_ud_lf_events<<"\t";
+	  os<<box_itr->second.social_d_lf_events+box_itr->second.social_ud_lf_events<<"\t"<<box_itr->second.total_lf_events<<"\t";
+	  if (box_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
+	    os<<"NA";
+	  else
+	    os<<box_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0;	  
 	  os<<endl;
 	}
 	os.close();
 	cout<<"DONE"<<endl;	
-	/*delme*/
-	//for (map<ptime,string>::iterator jj=tmp_set.begin(); jj!=tmp_set.end(); jj++)
-	  //cout<<jj->second<<" "<<to_simple_string(jj->first)<<endl;
-	/******/
+	
 	/*output the lf behaviour of each bat for each of her lf events*/
 	cout<<"Outputting lf behaviour for each bat for each of her lf events...";
 	os.open(bats_lead_follow_behav.c_str(),ios::out);
@@ -1186,6 +1170,7 @@ int main(int argc, char**argv) {
 	for (map<string,Bat>::iterator b_itr=bats_records.begin(); b_itr!=bats_records.end(); b_itr++) {
 	  for (unsigned k=0; k<b_itr->second.my_lfpairs.size(); k++) {
 	    Lf_pair *lf_ptr = &b_itr->second.my_lfpairs[k];
+	    if (!b_itr->second.hexid.compare("0000641775")) lf_ptr->print(&os_test);
 	    //sanity check
 	    if (b_itr->second.hexid.compare(lf_ptr->getLeaderId()))  //not equal if true
 	     {cerr<<"Sanity checks failed: Bats ids do not match"<<endl; exit(1);}
@@ -1207,6 +1192,7 @@ int main(int argc, char**argv) {
 	  }
 	}	
 	os.close();
+	os_test.close();
 	cout<<"DONE"<<endl;
 	/*output the leader_disturbed flag for all valid pairs*/
 	os.open(disturbed_leader.c_str(),ios::out);
@@ -1373,7 +1359,7 @@ int main(int argc, char**argv) {
 
         /*create the cxf file*/
         stringstream cxf;
-        cxf<<outdir<<"/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
+        cxf<<outdir<<"/lead_follow_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
         ofstream cxffile(cxf.str().c_str(),ios::trunc);
 	//add the nodes
 	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
@@ -1396,7 +1382,7 @@ int main(int argc, char**argv) {
 	igraph_real_t res1;
 	
 	stringstream assortativity;
-	assortativity<<"assortativity/"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	assortativity<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	ofstream assort(assortativity.str().c_str(),ios::trunc);
 	igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",/*ignore self loop=*/true);
 	igraph_vector_init(&indegree,total_bats_in_lf_events);
@@ -1419,7 +1405,7 @@ int main(int argc, char**argv) {
 	/*rewrire the graph*/
 	//cout<<endl;
 	stringstream assortativity_shuffled;
-	assortativity_shuffled<<"assortativity/"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<"_shuffled.txt";
+	assortativity_shuffled<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<"_shuffled.txt";
 	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);
 
 	igraph_rewire(&g2,10000,IGRAPH_REWIRING_SIMPLE);

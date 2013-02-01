@@ -75,6 +75,12 @@ struct batEntryCompare2 {
     }
 };
 
+/* UNINIT			=	0
+ * PERSONAL_UNDISTURBED		=	1
+ * PERSONAL_DISTURBED		=	2
+ * SOCIAL_UNDISTURBED		=	3
+ * SOCIAL_DISTURBED		=	4
+ * */
 enum lf_flag_types {UNINIT,PERSONAL_UNDISTURBED, PERSONAL_DISTURBED, SOCIAL_UNDISTURBED,SOCIAL_DISTURBED};
 class LF_FLAG {
 public:
@@ -157,6 +163,9 @@ public:
 class Bat {
 private:
     int internal_check; //safely ignore, used in make_informed for sanity checks
+    /*used to reset the roundtrip if the bat is spotted before roundtrip_time expires */
+    time_duration roundtrip_timeout;
+    
     struct movementCompare {
         bool operator() (pair<ptime,Box*> m1, pair<ptime,Box*> m2) {
             //the movement entries are identical if they are for the same box
