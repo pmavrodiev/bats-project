@@ -40,6 +40,12 @@ LF_FLAG::LF_FLAG(lf_flag_types other) {
 }
 
 
+bool Box::lfcomp::operator()(Lf_pair l1, Lf_pair l2) const {
+   if (l1.leader->hexid == l2.leader->hexid) 
+      return l1.follower->hexid < l2.follower->hexid;    
+   return (l1.leader->hexid < l2.leader->hexid);    
+}
+ 
 
 Box::Box(short Type, string Name, ptime occ) {
   type = Type;
@@ -102,6 +108,7 @@ Lf_pair::Lf_pair(Bat *B1, Bat *B2) {
   leader = B1;
   follower = B2;
   leader_disturbed=false;
+  valid=true;
 }
 Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname) {
   leader = B1;

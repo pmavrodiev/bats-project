@@ -35,7 +35,7 @@ string box_name, box_date,current_programmed_box;
 extern map<string,unsigned,bool(*)(string,string)> bats_map;
 //extern vector<string> bats_vector;
 extern vector<string> transponders_vector;
-extern time_duration knowledge_delay;
+extern time_duration roundtrip_time;
 extern time_duration lf_delay;
 extern string occupation_deadline;
 extern string Year;
@@ -132,7 +132,7 @@ LETTER [a-zA-Z]
   pch = strtok(yytext,".");
   //printf("%s\n",pch);
   ss<<pch; ss>>digit;
-  knowledge_delay = minutes(digit);
+  roundtrip_time = minutes(digit);
 }
 
 <TRANSPONDERS>{HEXDIGIT}{10} {  

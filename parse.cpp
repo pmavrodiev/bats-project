@@ -687,7 +687,7 @@ int main(int argc, char**argv) {
         /*******************/
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11;
-	string outdir="output_files_new_2/2008";//"output_files_new_2";
+	string outdir="output_files_new_2/2011";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -857,7 +857,7 @@ int main(int argc, char**argv) {
 	    else {
 	      Bat &ref = bats_records[programmed_bat];
 	      if (ref.hexid != programmed_bat) {
-		cerr<<"Error: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; //exit(1);
+		cout<<"Warning: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; //exit(1);
 	      }
 	      mybool &bool_ref = ref.disturbed_in_box[box];
 	      bool_ref.custom_boolean = TRUE;
@@ -972,9 +972,9 @@ int main(int argc, char**argv) {
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
 		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];
-		if (b1_know_ref.box_knowledge_how == UNDEFINED)
+		if (b1_know_ref.box_knowledge_how == UNDEFINED) 
 		  b1_know_ref.box_knowledge_how = PERSONAL;
-		
+	
 		if (!b1_ref.is_not_a_date_time()) { //seen it before
 		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
 		  if (t_d > roundtrip_time && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
@@ -1043,7 +1043,7 @@ int main(int argc, char**argv) {
 			    exit(1);
 			  }
 			  bx->total_lf_events++;
-			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B1->hexid];
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[newPair/*B1->hexid*/];
 			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
 			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}
 			  else lf_ref.first++;
@@ -1081,7 +1081,7 @@ int main(int argc, char**argv) {
 			    exit(1);
 			  }
 			  bx->total_lf_events++;
-			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[B2->hexid];
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[newPair/*B2->hexid*/];
 			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
 			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}			  
 			  else lf_ref.first++;
@@ -1117,10 +1117,6 @@ int main(int argc, char**argv) {
 
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
 	
-        //invalidate those pairs that violate lf_delay
-        //for (unsigned h=0; h<vec_lfpairs.size(); h++)
-          //  vec_lfpairs[h].validate(lf_delay);
-	
 	/*output the social vs. personal lf events for each box*/	
 	/*
 	ofstream os(social_personal_box_lf.c_str(),ios::out);
@@ -1140,6 +1136,45 @@ int main(int argc, char**argv) {
 	os.close();
 	cout<<"DONE"<<endl;
 	*/
+	/****/
+	/*
+	cout<<"Outputting stuff for Nico"<<endl;
+	//ofstream nico("lf-events-per-box.txt",ios::out);
+	ofstream nico("box-discovered.txt",ios::out);
+	if (!nico.good()) {
+            perror("lf-events-per-box.txt");
+            exit(1);
+        }
+        nico<<"Box\t"<<"Discoverer\t"<<"Time of discovery\t"<<"Time of occupation"<<endl;
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  nico<<box_itr->first<<"\t"<<box_itr->second.discoveredBy.first<<"\t";
+	  nico<<to_iso_extended_string(box_itr->second.discoveredBy.second)<<"\t";
+	  if (!box_itr->second.occupiedWhen.is_not_a_date_time()) 
+	    nico<<to_iso_extended_string(box_itr->second.occupiedWhen)<<endl;
+	  else nico<<endl;
+	}
+	*/
+        /*
+        nico<<"Leader\t\tFollower\tTime of LF event(leader time)\tBox Name\tStatus of leader (PD/PU/SD/SU)"<<endl;
+        for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  Box *b = &box_itr->second;
+	  for (map<Lf_pair, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {
+	    const Lf_pair *lp = &lf_itr->first;
+	    nico<<lp->leader->hexid<<"\t"<<lp->follower->hexid<<"\t"<<to_iso_extended_string(lp->tleader)<<"\t";
+	    nico<<"\t"<<lp->box_name<<"\t\t";
+	    switch (lf_itr->second.second.this_lf_flag) {
+	      case 1: nico<<"PU"<<endl;break;
+	      case 2: nico<<"PD"<<endl;break;
+	      case 3: nico<<"SU"<<endl;break;
+	      case 4: nico<<"SD"<<endl;break;
+	      default: nico<<"ERROR"<<endl;break;
+	    }	    
+	  }
+	}
+        */
+	//nico.close();
+	//cout<<"DONE"<<endl;
+	/********/
 	cout<<"Outputting detailed box statistics...";
 	ofstream os(most_detailed.c_str(),ios::out);
 	if (!os.good()) {
@@ -1149,8 +1184,9 @@ int main(int argc, char**argv) {
 	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
 	  Box *b = &box_itr->second;
 	  os<<b->name<<" ";
-	  for (map<string, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
-	    os<<lf_itr->first<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"\t";
+	  for (map<Lf_pair, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
+	    os<<lf_itr->first.leader->hexid<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"/";
+	    os<<lf_itr->first.follower->hexid<<"\t";
 	  }
 	  os<<box_itr->second.personal_d_lf_events+box_itr->second.personal_ud_lf_events<<"\t";
 	  os<<box_itr->second.social_d_lf_events+box_itr->second.social_ud_lf_events<<"\t"<<box_itr->second.total_lf_events<<"\t";

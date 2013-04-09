@@ -25,6 +25,7 @@ using namespace boost::gregorian;
 using namespace std;
 
 class Bat;
+
 /* ======================== CLASS DEFINITIONS ========================== */
 
 enum BoxStatus {DISCOVERED, UNDISCOVERED};
@@ -90,30 +91,6 @@ public:
 };
   
 
-class Box {
-public:
-    short type; //0-control, 1-minority, 2-majority, 3-all
-    string name;
-    set<BatEntry,batEntryCompare> activity;
-    BoxStatus status; //has this box been discovered or not
-    pair<string,ptime> discoveredBy; //who discovered the box and when
-    ptime occupiedWhen; //when was the box occupied. must be pre-defined
-    /*sanity check: social_lf_events+personal_lf_events=total_lf_events*/
-    unsigned total_lf_events; //total # of lf events to this box
-    unsigned social_ud_lf_events; //total # of social undisturbed lf events
-    unsigned social_d_lf_events; //total # of social disturbed lf events
-    unsigned personal_ud_lf_events; //total # of personal undisturbed lf events 
-    unsigned personal_d_lf_events; //total # of personal disturbed lf events 
-    map<string, pair<unsigned,LF_FLAG> > lf_events; //bat_id -> <#lf events,status>
-    void discovered(string bat_id,ptime when);
-    time_duration getOccupiedDiscoveredDelta();
-    //all activities after this date are ignored!
-    //if not occupied this time is set to +inf.
-    Box(short Type, string Name, ptime occ);
-    Box();
-    void print();
-};
-
 
 class Lf_pair {
 public:
@@ -138,7 +115,6 @@ public:
 };
 
 bool Lf_pair_compare(Lf_pair lf1, Lf_pair lf2);
-
 /*just like the normal boolean datatype, but this ensures that a bool is always initted to a token value*/
 enum MYBOOLEAN {UNINITIALIZED=2, TRUE=1,FALSE=0};
 class mybool {
@@ -147,6 +123,41 @@ public:
   mybool() ;
   mybool(MYBOOLEAN b);
 };
+
+
+
+class Box {
+private:
+  struct lfcomp {
+    bool operator()(Lf_pair l1, Lf_pair l2) const;
+};
+
+public:
+    short type; //0-control, 1-minority, 2-majority, 3-all
+    string name;
+    set<BatEntry,batEntryCompare> activity;
+    BoxStatus status; //has this box been discovered or not
+    pair<string,ptime> discoveredBy; //who discovered the box and when
+    ptime occupiedWhen; //when was the box occupied. must be pre-defined
+    /*sanity check: social_lf_events+personal_lf_events=total_lf_events*/
+    unsigned total_lf_events; //total # of lf events to this box
+    unsigned social_ud_lf_events; //total # of social undisturbed lf events
+    unsigned social_d_lf_events; //total # of social disturbed lf events
+    unsigned personal_ud_lf_events; //total # of personal undisturbed lf events 
+    unsigned personal_d_lf_events; //total # of personal disturbed lf events 
+    map<Lf_pair, pair<unsigned,LF_FLAG>,lfcomp> lf_events; //bat_id -> <#lf events,status>
+    void discovered(string bat_id,ptime when);
+    time_duration getOccupiedDiscoveredDelta();
+    //all activities after this date are ignored!
+    //if not occupied this time is set to +inf.
+    Box(short Type, string Name, ptime occ);
+    Box();
+    void print();
+};
+
+
+
+
 
 //the knowledge of bats per box
 enum BatKnowledgeEnum {NAIIVE, EXPERIENCED}; 
@@ -179,6 +190,9 @@ private:
         }
     };
 public:
+    //all explorations and revisits are stored here
+    vector<pair<Box *, BatEntry*> > explorations;
+    vector<pair<Box *, BatEntry*> > revisits;
     bool part_of_lf_event; //has this bat taken part in an lf-event? either as a leader
     //or as a follower
     //the cumulative relatedness between all individuals following this bat over time
