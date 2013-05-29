@@ -14,6 +14,7 @@
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
+extern map<string,vector<string> > box_programming;
 /* ======================== CLASS DEFINITIONS ========================== */
 
 BatEntry::BatEntry(string entry_time, string hex, string name) {
@@ -85,6 +86,52 @@ void Box::discovered(string bat_id, ptime when) {
   discoveredBy.first=bat_id;
 }
 
+unsigned Box::get_num_occ_bats() {
+  return (occupyingBats.size());  
+}
+
+string Box::howmany_leaders_followers() {
+  //#dist leaders,#undist. leaders,#dist followers, #undist. followers, #naiive, #experienced
+  int stats[6] = {0,0,0,0,0,0};  
+  for (unsigned i=0; i<get_num_occ_bats(); i++) {
+    string bat_id = occupyingBats[i]->hexid;
+    vector<string> programmed_bats = box_programming[this->name];
+    bool found = false;
+    for (unsigned j=0; j<programmed_bats.size();j++) 
+      if (programmed_bats[j] == bat_id) {
+	found=true; break;
+      }
+    /**/  
+    if (leaders.find(bat_id) != leaders.end()) {            
+      if (found)
+	stats[0]++;
+      else
+	stats[1]++;
+    }
+    else if (followers.find(bat_id) != followers.end()) {      
+      if (found)
+	stats[2]++;
+      else
+	stats[3]++;      
+    }
+    else if (occupyingBats[i]->box_knowledge[name].box_knowledge == NAIIVE)
+      stats[4]++;
+    else if (occupyingBats[i]->box_knowledge[name].box_knowledge == EXPERIENCED)
+      stats[5]++;
+    else {
+      stats[0]=-1;stats[1]=-1;stats[2]=-1;stats[3]=-1;stats[4]=-1;stats[5]=-1;
+    }
+  }
+  stringstream ss;
+  ss<<stats[0]<<"("<<leaders.size()<<")"<<"\t\t\t\t";
+  ss<<stats[1]<<"("<<leaders.size()<<")"<<"\t\t\t\t\t";
+  ss<<stats[2]<<"("<<followers.size()<<")"<<"\t\t\t\t\t";
+  ss<<stats[3]<<"("<<followers.size()<<")"<<"\t\t\t   ";
+  ss<<stats[4]<<"\t\t";
+  ss<<stats[5];
+  return ss.str();
+}
+
 time_duration Box::getOccupiedDiscoveredDelta() {
   if  (occupiedWhen.is_not_a_date_time() || discoveredBy.second.is_not_a_date_time()) {
     cerr<<"Error: Should never happen"<<endl; exit(1);
@@ -102,13 +149,15 @@ Lf_pair::Lf_pair() {
   tleader=not_a_date_time;
   tfollower=not_a_date_time;
   box_name="";
-  leader_disturbed=false;  
+  leader_disturbed = false;
+  is_passive_leading = false;
 }
 Lf_pair::Lf_pair(Bat *B1, Bat *B2) {
   leader = B1;
   follower = B2;
   leader_disturbed=false;
   valid=true;
+  is_passive_leading = false;
 }
 Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname) {
   leader = B1;
@@ -118,6 +167,7 @@ Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname) {
   box_name = bname;
   valid = true;
   leader_disturbed=false;
+  is_passive_leading = false;
 }
 Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname, bool v) {
   leader = B1;
@@ -127,6 +177,7 @@ Lf_pair::Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname, bool v) {
   box_name = bname;
   valid = v;
   leader_disturbed=false;
+  is_passive_leading = false;
 }
 
 bool Lf_pair::equals(Lf_pair &other) {

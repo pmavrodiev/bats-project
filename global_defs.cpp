@@ -1,5 +1,7 @@
 /* ======================== GLOBAL DEFINITIONS ======================= */
-
+/*verbose flag*/
+bool verbflag=false;
+	
 map<string,ptime> box_occupation;
 map<string,string> monaten; //maps month names to month numbers
 /*the year of the analysis*/
@@ -9,8 +11,8 @@ string Year;
 time_duration roundtrip_time;// = minutes(3);
 //maximum allowed delay between a leader and a follower
 time_duration lf_delay;// = minutes(5);
-//min. time interval for flying between two boxes
-time_duration min_time_interval = minutes(0.1);
+//min time for revisit
+pair<time_duration, time_duration> revisit_interval(minutes(1),minutes(10));
 /*at what time (we have the dates from the config file) do we start
  *ignoring readings for a given box*/
 string occupation_deadline;
@@ -65,6 +67,8 @@ map<unsigned,string,bool(*)(unsigned,unsigned)> boxes_auxillary_reversed(fn_pt2)
 
 /*stores the box programming: box_name->vector of bats programmed for this box*/
 map<string,vector<string> > box_programming;
+/*stores the occupying bats for each box: box_name->vector of occupying bats*/
+map<string,vector<string> > box_occup_bats;
 
 /*initialised by the flex scanner*/
 vector < pair<string,string> >  box_entries;

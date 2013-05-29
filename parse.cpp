@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -559,7 +559,7 @@ void processDataDirectory(string dir_name,string box_name) {
     DIR *data_dir;
     struct dirent *ent;
 
-    //cout<<"Entering "<<dir_name<<endl;
+    cout<<"Entering "<<dir_name<<endl;
     data_dir = opendir (dir_name.c_str());
     short file_counter = 0;
     if (data_dir != NULL) {
@@ -576,7 +576,7 @@ void processDataDirectory(string dir_name,string box_name) {
                 if (file_name.substr(file_name.length()-3,3) == "xls")
                     skip = true;
                 if (skip) continue;
-                cout<<file_name.c_str()<<endl;
+                if (verbflag) cout<<file_name.c_str()<<endl;
                 yyin = fopen(file_name.c_str(),"r");
 		if (yyin == NULL) {
 		  perror(file_name.c_str());
@@ -644,6 +644,7 @@ int main(int argc, char**argv) {
         return 0;
     }
     if (argc == 5) {
+	
         /*init the months map*/
         monaten["JAN"] = "01";
         monaten["FEB"] = "02";
@@ -687,7 +688,7 @@ int main(int argc, char**argv) {
         /*******************/
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11;
-	string outdir="output_files_new_2/2011";//"output_files_new_2";
+	string outdir="output_files_new_2/2008";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -706,8 +707,7 @@ int main(int argc, char**argv) {
         base_dir = argv[0];
         initBoxes(base_dir);
         /*remove that later (2)*/
-        //change the occupation deadline of the boxes
-        
+        //change the occupation deadline of the boxes        
         for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end(); kk++) {
             if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {
                 string existingDate = to_iso_string(kk->second.occupiedWhen);
@@ -716,8 +716,7 @@ int main(int argc, char**argv) {
                 kk->second.occupiedWhen = occupation_time;
             }
         }
-        
-        /*********************/
+        /*********************/	
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
 
@@ -864,6 +863,21 @@ int main(int argc, char**argv) {
 	    }
 	  }	  
 	}
+        
+        /*after all box objects have been created update the box objects with occupying information*/
+	for (map<string,vector<string> >::iterator itr_box_occup = box_occup_bats.begin(); itr_box_occup != box_occup_bats.end(); itr_box_occup++) {	 
+	  string box = itr_box_occup->first;
+	  for (unsigned jj=0; jj<itr_box_occup->second.size(); jj++) {
+	    string occupying_bat = itr_box_occup->second[jj];	    
+	    Bat *ptr = &bats_records[occupying_bat];
+	    if (ptr->hexid != occupying_bat) {
+	      cout<<"Error: Mismatch in bat ids "<<ptr->hexid<<"-"<<occupying_bat<<endl; 
+	      exit(1);
+	    }
+	    boxes[box].occupyingBats.push_back(ptr);
+	  }	  
+	}
+	
         //associate mothers to daughters
         for (map<string,unsigned int>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
 	    /*Here, if there is a bat with no records in the data from bats_map, it will be added to bats_records*/
@@ -932,7 +946,7 @@ int main(int argc, char**argv) {
             string bat = j->second.hexid;
             mother_itr = find(mothers.begin(),mothers.end(),bat);
             daughters_itr = find(daughters.begin(),daughters.end(),bat.substr(bat.length()-4,4));
-            if (mother_itr == mothers.end() && daughters_itr == daughters.end()) {
+            if (mother_itr == mothers.end() && daughters_itr == daughters.end() && verbflag) {
                 cout<<bat<<" not found as either mother or daughter in the mother-daughter file"<<endl;
             }
         }
@@ -971,12 +985,12 @@ int main(int argc, char**argv) {
                 box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
-		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];
+		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];		
 		if (b1_know_ref.box_knowledge_how == UNDEFINED) 
 		  b1_know_ref.box_knowledge_how = PERSONAL;
-	
+		time_duration t_d(1,0,0,0); //1 hour, dummy value
 		if (!b1_ref.is_not_a_date_time()) { //seen it before
-		  time_duration t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
+		  t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
 		  if (t_d > roundtrip_time && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
 		    b1_know_ref.box_knowledge = EXPERIENCED;		     
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
@@ -1023,6 +1037,10 @@ int main(int argc, char**argv) {
 			}
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
+			//is this passive leading?
+			if (t_d > revisit_interval.first && t_d <= revisit_interval.second) //is this lf event passive leading?			 
+			  newPair.is_passive_leading = true;
+			
 			bool insert_success = B1->insert_pair(newPair);			
 			if (insert_success) {			  
 			  LF_FLAG lf;
@@ -1061,6 +1079,9 @@ int main(int argc, char**argv) {
 			}
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
+			//is this passive leading following?
+                        if (td_update_knowledge > revisit_interval.first && td_update_knowledge <= revisit_interval.second)						
+			  newPair.is_passive_leading = true;
 			bool insert_success = B2->insert_pair(newPair);
 			if (insert_success) {			  			
 			  LF_FLAG lf;
@@ -1104,6 +1125,10 @@ int main(int argc, char**argv) {
                    //if it doesn't exists simply add it
                    if (!exists)
                        current_box_pairs.push_back(newPair);
+		   //add the leader and the follower of this player to the box objects		       
+		   pair<set<string>::iterator,bool> set_iterator;
+		   set_iterator = bx->leaders.insert(newPair.getLeaderId()); 
+		   set_iterator = bx->followers.insert(newPair.getFollowerId());                         
                 } //end for (unsigned j=i; j<box_bat_entries.size(); j++)
             } //end for (unsigned j=i; j<box_bat_entries.size(); j++) {
             //==================================================================
@@ -1174,7 +1199,7 @@ int main(int argc, char**argv) {
         */
 	//nico.close();
 	//cout<<"DONE"<<endl;
-	/********/
+	/********/	
 	cout<<"Outputting detailed box statistics...";
 	ofstream os(most_detailed.c_str(),ios::out);
 	if (!os.good()) {
@@ -1184,9 +1209,12 @@ int main(int argc, char**argv) {
 	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
 	  Box *b = &box_itr->second;
 	  os<<b->name<<" ";
+	  int n_passive_lf = 0;
 	  for (map<Lf_pair, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
 	    os<<lf_itr->first.leader->hexid<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"/";
-	    os<<lf_itr->first.follower->hexid<<"\t";
+	    os<<lf_itr->first.follower->hexid<<"/"<<((lf_itr->first.is_passive_leading) ? "1":"0")<<"\t";
+	    if (lf_itr->first.is_passive_leading)
+	      n_passive_lf++;
 	  }
 	  os<<box_itr->second.personal_d_lf_events+box_itr->second.personal_ud_lf_events<<"\t";
 	  os<<box_itr->second.social_d_lf_events+box_itr->second.social_ud_lf_events<<"\t"<<box_itr->second.total_lf_events<<"\t";
@@ -1194,15 +1222,19 @@ int main(int argc, char**argv) {
 	    os<<"NA";
 	  else
 	    os<<box_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0;	  
+	  os<<"\t"<<(box_itr->second.total_lf_events == 0 ? 0.0 : float(n_passive_lf) / float(box_itr->second.total_lf_events));
 	  os<<endl;
 	}
 	os.close();
 	cout<<"DONE"<<endl;	
 	
 	/*output the lf behaviour of each bat for each of her lf events*/
-	cout<<"Outputting lf behaviour for each bat for each of her lf events...";
-	os.open(bats_lead_follow_behav.c_str(),ios::out);
-	
+	cout<<"Outputting lf behaviour for each bat for each of her lf events...";	
+	os.open(bats_lead_follow_behav.c_str(),ios::out);	
+	if (!os.good()) {
+	  perror(bats_lead_follow_behav.c_str());
+	  exit(1);
+	}	
 	for (map<string,Bat>::iterator b_itr=bats_records.begin(); b_itr!=bats_records.end(); b_itr++) {
 	  for (unsigned k=0; k<b_itr->second.my_lfpairs.size(); k++) {
 	    Lf_pair *lf_ptr = &b_itr->second.my_lfpairs[k];
@@ -1226,10 +1258,22 @@ int main(int argc, char**argv) {
 		  os<<SOCIAL_DISTURBED<<endl;
 	    else {cerr<<"Sanity checks failed: impossible combination"<<endl;}	
 	  }
-	}	
-	os.close();
-	os_test.close();
+	}
+	os.close();	
 	cout<<"DONE"<<endl;
+	os_test.close();
+	/*** OUTPUT THE ASSOCIATION BETWEEN OCUPPYING AND LEADING/FOLLOWING BATS****/
+	cout<<"Identifying who the occupying bats are...";
+	os_test.open(ss_test.str().c_str(),ios::app);
+	os_test<<endl<<endl;
+	os_test<<"Box\t#occ dist.leaders(all leaders)\t#occ undist leaders(all leaders)\t#occ. dist.followers(all followers)\t#occ. undist.followers(all followers)\t#naive\t#experienced"<<endl;
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  os_test<<box_itr->second.name<<"\t\t"<<box_itr->second.howmany_leaders_followers()<<endl;
+	}
+	cout<<"DONE"<<endl;
+	os_test.close();
+	/*****/
+	
 	/*output the leader_disturbed flag for all valid pairs*/
 	os.open(disturbed_leader.c_str(),ios::out);
 	if (!os.good()) {
@@ -1375,7 +1419,10 @@ int main(int argc, char**argv) {
                     related_itr = relatedness_map.find(leader_follower_order);
                     if (related_itr != relatedness_map.end())
                         leader->cumulative_relatedness += related_itr->second; //found it
-                    else cout<<"Warning: No relatedness data between "<<leader_hexid<<" and "<<follower_hexid<<endl;
+                    else {
+		      if (verbflag)
+			cout<<"Warning: No relatedness data between "<<leader_hexid<<" and "<<follower_hexid<<endl;
+		    }
                 }
                 else
                     leader->cumulative_relatedness += related_itr->second; //found it

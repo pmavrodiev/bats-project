@@ -101,6 +101,8 @@ public:
     ptime tfollower;
     bool leader_disturbed;
     bool valid; //valid only if abs(tleader-tfollower) <= "3-minute" rule. true by default
+    //is this lf pair a passive leading following event?
+    bool is_passive_leading;
     Lf_pair();     
     Lf_pair(Bat *B1, Bat *B2); 
     Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname);    
@@ -145,11 +147,27 @@ public:
     unsigned social_d_lf_events; //total # of social disturbed lf events
     unsigned personal_ud_lf_events; //total # of personal undisturbed lf events 
     unsigned personal_d_lf_events; //total # of personal disturbed lf events 
+    set<string> leaders; //all bats who led to this box
+    set<string> followers; //all bats who followed to this box
     map<Lf_pair, pair<unsigned,LF_FLAG>,lfcomp> lf_events; //bat_id -> <#lf events,status>
+    vector<Bat *> occupyingBats; //pointers to the bats that occupied that box
+    unsigned get_num_occ_bats(); //get the number of occupying bats
     void discovered(string bat_id,ptime when);
-    time_duration getOccupiedDiscoveredDelta();
+    /*
+    returns how many bats who lead or followed (determined by flag)
+    occupied the box at the first night of occupation
+    also computes how many bats occuppied the box but
+    did not take part in an lf event
+    prints out a vector {a,b,c,d}, where
+    a = #leaders who occupied the box
+    b = #followers who occupied the box
+    c = #naiive occupators who did not participate in a lf event
+    d = #experienced occupators who did not participate in a lf event
+    */
+    string howmany_leaders_followers();
     //all activities after this date are ignored!
     //if not occupied this time is set to +inf.
+    time_duration getOccupiedDiscoveredDelta();
     Box(short Type, string Name, ptime occ);
     Box();
     void print();
@@ -174,8 +192,6 @@ public:
 class Bat {
 private:
     int internal_check; //safely ignore, used in make_informed for sanity checks
-    /*used to reset the roundtrip if the bat is spotted before roundtrip_time expires */
-    time_duration roundtrip_timeout;
     
     struct movementCompare {
         bool operator() (pair<ptime,Box*> m1, pair<ptime,Box*> m2) {
@@ -190,9 +206,7 @@ private:
         }
     };
 public:
-    //all explorations and revisits are stored here
-    vector<pair<Box *, BatEntry*> > explorations;
-    vector<pair<Box *, BatEntry*> > revisits;
+    
     bool part_of_lf_event; //has this bat taken part in an lf-event? either as a leader
     //or as a follower
     //the cumulative relatedness between all individuals following this bat over time
