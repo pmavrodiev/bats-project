@@ -12,7 +12,7 @@ time_duration roundtrip_time;// = minutes(3);
 //maximum allowed delay between a leader and a follower
 time_duration lf_delay;// = minutes(5);
 //min time for revisit
-pair<time_duration, time_duration> revisit_interval(minutes(1),minutes(10));
+pair<time_duration, time_duration> revisit_interval(minutes(10),hours(23));
 /*at what time (we have the dates from the config file) do we start
  *ignoring readings for a given box*/
 string occupation_deadline;
@@ -500,5 +500,5 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 
 /*output files*/
 string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader;
-string social_personal_box_lf,bats_lead_follow_behav,most_detailed;
+string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
 /* ==================================================================== */

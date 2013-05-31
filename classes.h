@@ -25,6 +25,7 @@ using namespace boost::gregorian;
 using namespace std;
 
 class Bat;
+class Box;
 
 /* ======================== CLASS DEFINITIONS ========================== */
 
@@ -126,7 +127,15 @@ public:
   mybool(MYBOOLEAN b);
 };
 
-
+class event {
+public:
+  string eventname;//one of DISCOVERY,EXPLORATION,REVISIT,FOLLOW
+  Box *box;
+  Bat *bat;
+  ptime eventtime;
+  event(string, Bat *,Box *, ptime);
+  void print(ofstream *);
+};
 
 class Box {
 private:
@@ -141,6 +150,9 @@ public:
     BoxStatus status; //has this box been discovered or not
     pair<string,ptime> discoveredBy; //who discovered the box and when
     ptime occupiedWhen; //when was the box occupied. must be pre-defined
+    /*how the knowledge about this box has spread through the colony
+      "knowledge" is each discovery, exploration or following*/
+    vector<event> information_spread;
     /*sanity check: social_lf_events+personal_lf_events=total_lf_events*/
     unsigned total_lf_events; //total # of lf events to this box
     unsigned social_ud_lf_events; //total # of social undisturbed lf events
@@ -150,6 +162,7 @@ public:
     set<string> leaders; //all bats who led to this box
     set<string> followers; //all bats who followed to this box
     map<Lf_pair, pair<unsigned,LF_FLAG>,lfcomp> lf_events; //bat_id -> <#lf events,status>
+    vector<event> revisiting_bats;
     vector<Bat *> occupyingBats; //pointers to the bats that occupied that box
     unsigned get_num_occ_bats(); //get the number of occupying bats
     void discovered(string bat_id,ptime when);
@@ -224,6 +237,11 @@ public:
     map<string,ptime> informed_since;
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
+    vector<event> my_revisits;
+    /*last_revisit: misc variable used when identifying the revisits*/
+    ptime last_revisit; //default constructor is neg_infin
+    //amother misc variable, used when identifying the revisits
+    ptime last_seen; //default constructor is not_a_date_time
     bool insert_pair(Lf_pair lfp);    //true if pair is inserted, false otherwise
     void add_movement(ptime Time, Box * box_ptr);
     //make the bat informed

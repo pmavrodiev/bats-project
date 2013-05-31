@@ -687,7 +687,7 @@ int main(int argc, char**argv) {
         occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11;
+        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13;
 	string outdir="output_files_new_2/2008";//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
@@ -703,6 +703,11 @@ int main(int argc, char**argv) {
 	bats_lead_follow_behav = ss10.str();
 	ss11<<outdir<<"/most-detailed"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
 	most_detailed = ss11.str();
+	ss12<<outdir<<"/revisits"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";	
+	revisits = ss12.str();
+	ss13<<outdir<<"/info_spread"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";	
+	info_spread = ss13.str();
+
 	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
@@ -978,13 +983,16 @@ int main(int argc, char**argv) {
             }
             /*main pairing loop. */
 	    bx->status = DISCOVERED;
-	    bx->discovered(box_bat_entries[0].hexid,box_bat_entries[0].TimeOfEntry);	    
+	    bx->discovered(box_bat_entries[0].hexid,box_bat_entries[0].TimeOfEntry);
+	    bx->information_spread.push_back(event("discovery",&bats_records[box_bat_entries[0].hexid],bx,
+						   box_bat_entries[0].TimeOfEntry));
             //==================================================================
             //int counter2 = 0;	   
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
+		B1->last_seen = box_bat_entries[i].TimeOfEntry;
 		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];		
 		if (b1_know_ref.box_knowledge_how == UNDEFINED) 
 		  b1_know_ref.box_knowledge_how = PERSONAL;
@@ -995,16 +1003,31 @@ int main(int argc, char**argv) {
 		    b1_know_ref.box_knowledge = EXPERIENCED;		     
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
 		  }
-		}		
+		}
+		else  //exploration
+		  bx->information_spread.push_back(event("exploration",B1,bx,box_bat_entries[i].TimeOfEntry));
+		
                 b1_ref = box_bat_entries[i].TimeOfEntry;
                 for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {		   
                     Bat *B2 = &bats_records[box_bat_entries[j].hexid];                  
 		    BatKnowledge &b2_know_ref = B2->box_knowledge[bx->name];
 		    if (b2_know_ref.box_knowledge_how == UNDEFINED)
 		      b2_know_ref.box_knowledge_how = PERSONAL;
-                    if (*B1 == *B2) 
-                        /*cout<<"\t"<<"identical"<<endl;*/continue;   //no self lf events
-
+                    if (*B1 == *B2) {
+		      //could be a revisit
+		      time_duration tdur = box_bat_entries[j].TimeOfEntry - B1->last_seen;
+		      if (tdur > revisit_interval.first) {//&& tdur <= revisit_interval.second) {
+			time_duration time_since_last_revisit = box_bat_entries[j].TimeOfEntry - B2->last_revisit;
+			if (time_since_last_revisit > revisit_interval.first) {
+			  event new_revisit("revisit",B2,bx,box_bat_entries[j].TimeOfEntry);
+			  B2->my_revisits.push_back(new_revisit);
+			  bx->revisiting_bats.push_back(new_revisit);
+			  B2->last_revisit = box_bat_entries[j].TimeOfEntry;
+			}
+		      }
+		      B2->last_seen = box_bat_entries[j].TimeOfEntry;
+                      continue; 
+		    }
                     //first update this bat's knowledge about the given box, if necessary
                     ptime &ref = lastSeen[B2->hexid];
                     if (ref.is_not_a_date_time()) 
@@ -1038,7 +1061,7 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
 			//is this passive leading?
-			if (t_d > revisit_interval.first && t_d <= revisit_interval.second) //is this lf event passive leading?			 
+			if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
 			  newPair.is_passive_leading = true;
 			
 			bool insert_success = B1->insert_pair(newPair);			
@@ -1080,7 +1103,7 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
 			//is this passive leading following?
-                        if (td_update_knowledge > revisit_interval.first && td_update_knowledge <= revisit_interval.second)						
+                        if (td_update_knowledge > revisit_interval.first)// && td_update_knowledge <= revisit_interval.second)						
 			  newPair.is_passive_leading = true;
 			bool insert_success = B2->insert_pair(newPair);
 			if (insert_success) {			  			
@@ -1123,8 +1146,11 @@ int main(int argc, char**argv) {
                         }
                     }
                    //if it doesn't exists simply add it
-                   if (!exists)
+                   if (!exists) {
                        current_box_pairs.push_back(newPair);
+		       //also add the follower into the box information_spread vector
+		       bx->information_spread.push_back(event("following",newPair.follower,bx,newPair.tfollower));
+		   }
 		   //add the leader and the follower of this player to the box objects		       
 		   pair<set<string>::iterator,bool> set_iterator;
 		   set_iterator = bx->leaders.insert(newPair.getLeaderId()); 
@@ -1199,9 +1225,25 @@ int main(int argc, char**argv) {
         */
 	//nico.close();
 	//cout<<"DONE"<<endl;
-	/********/	
+	/********/
+	cout<<"Outputting revisit statistics for each box...";
+	ofstream os(revisits.c_str(),ios::out);
+	if (!os.good()) {
+            perror(revisits.c_str());
+            exit(1);
+        }
+        for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  Box *b = &box_itr->second;
+	  os<<b->name<<" "<<endl;
+	  for (unsigned i=0; i < b->revisiting_bats.size(); i++) {
+	    os<<b->revisiting_bats[i].bat->hexid<<"\t";
+	    os<<to_simple_string(b->revisiting_bats[i].eventtime)<<endl;
+	  }
+	}
+        os.close();
+	cout<<"DONE"<<endl;	
 	cout<<"Outputting detailed box statistics...";
-	ofstream os(most_detailed.c_str(),ios::out);
+	os.open(most_detailed.c_str(),ios::out);
 	if (!os.good()) {
             perror(most_detailed.c_str());
             exit(1);
@@ -1273,7 +1315,21 @@ int main(int argc, char**argv) {
 	cout<<"DONE"<<endl;
 	os_test.close();
 	/*****/
-	
+	/*output the information spread for each box*/
+	cout<<"Outputting information spread per box ...";
+	os.open(info_spread.c_str(),ios::out);
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  for (unsigned jj=0; jj<box_itr->second.information_spread.size();jj++) 
+	    box_itr->second.information_spread[jj].print(&os);	  
+	}
+	if (!os.good()) {
+            perror(lf_time_diff.c_str());
+            exit(1);
+        }
+	 
+        os.close();
+	cout<<"DONE"<<endl;
+	/****/
 	/*output the leader_disturbed flag for all valid pairs*/
 	os.open(disturbed_leader.c_str(),ios::out);
 	if (!os.good()) {

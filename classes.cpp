@@ -47,7 +47,18 @@ bool Box::lfcomp::operator()(Lf_pair l1, Lf_pair l2) const {
    return (l1.leader->hexid < l2.leader->hexid);    
 }
  
+event::event(string event_name, Bat* whichbat , Box* whichbox, ptime whattime) {
+  eventname = event_name;
+  bat = whichbat;
+  box = whichbox;
+  eventtime = whattime;
+}
 
+void event::print(ofstream *out) {
+  (*out)<<box->name<<"\t"<<eventname<<"\t"<<bat->hexid<<"\t"<<to_simple_string(eventtime)<<endl;
+}
+
+ 
 Box::Box(short Type, string Name, ptime occ) {
   type = Type;
   name = Name;
@@ -306,6 +317,7 @@ Bat::Bat(string Id) {
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
   internal_check=0;
+  last_revisit = neg_infin;
 }
 Bat::Bat() {
   hexid = "";
@@ -314,6 +326,7 @@ Bat::Bat() {
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
   internal_check=0;
+  last_revisit = neg_infin;
 }
 void Bat::print() {
   std::cout<<"BAT "<<hexid<<std::endl;
