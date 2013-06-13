@@ -1,17 +1,27 @@
-
 /* ======================== GLOBAL DEFINITIONS ======================= */
+/*verbose flag*/
+bool verbflag=true;
+	
+/*start of experiment*/
+
+//tm start_exp = to_tm(ptime(from_iso_string("20080505T000000"))); //05.05.2008
+tm end_exp   = to_tm(ptime(from_iso_string("20080926T000000"))); //26.09.2008
 
 map<string,ptime> box_occupation;
+map<string,ptime> box_installation;
+map<string,string> box_occupation_deadline;
 map<string,string> monaten; //maps month names to month numbers
 /*the year of the analysis*/
 string Year;
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
-time_duration knowledge_delay;// = minutes(3);
+time_duration roundtrip_time;// = minutes(3);
 //maximum allowed delay between a leader and a follower
 time_duration lf_delay;// = minutes(5);
-//min. time interval for flying between two boxes
-time_duration min_time_interval = minutes(0.1);
+//min time for revisit
+pair<time_duration, time_duration> revisit_interval(minutes(10),hours(23));
+//max allowed time distance for a revisit to be counted as leading
+time_duration revisit_limit(minutes(2));
 /*at what time (we have the dates from the config file) do we start
  *ignoring readings for a given box*/
 string occupation_deadline;
@@ -52,7 +62,7 @@ bool paircomp(pair<unsigned,unsigned> lhs, pair<unsigned,unsigned> rhs) {
     else 
       return (lhs.first < rhs.first);
 }
-bool(*fn_pt3)(pair<int,int>,pair<int,int>) = paircomp;
+bool(*fn_pt3)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) = paircomp;
 
 /*all bats in a map keyed by name and indexed from 0*/
 map<string,unsigned,bool(*)(string,string)> bats_map(fn_pt);
@@ -63,6 +73,11 @@ map<string,Box,bool(*)(string,string)> boxes(fn_pt);
 /*stores boxes names and associated numerical index*/
 map<string,unsigned,bool(*)(string,string)> boxes_auxillary(fn_pt);
 map<unsigned,string,bool(*)(unsigned,unsigned)> boxes_auxillary_reversed(fn_pt2);
+
+/*stores the box programming: box_name->vector of bats programmed for this box*/
+map<string,vector<string> > box_programming;
+/*stores the occupying bats for each box: box_name->vector of occupying bats*/
+map<string,vector<string> > box_occup_bats;
 
 /*initialised by the flex scanner*/
 vector < pair<string,string> >  box_entries;
@@ -493,6 +508,6 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 }
 
 /*output files*/
-string lf_time_diff,lf_valid_time_diff;
-
+string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader;
+string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
 /* ==================================================================== */

@@ -25,6 +25,8 @@ extern map<string,string> monaten; //maps months to their numerical value
 extern map<string,ptime> box_occupation; //maps box names to their dates of occupation
 					 //if a box has not been occupied, this date
 					 //is set to not_a_date_time
+					 
+extern map<string,ptime> box_installation; //maps box names to their dates of installation
 
 /*stores the box programming: box_name->vector of bats programmed for this box*/
 extern map<string,vector<string> > box_programming; 
@@ -32,8 +34,11 @@ extern map<string,vector<string> > box_programming;
 /*stores the occupying bats for each box*/
 extern map<string,vector<string> > box_occup_bats;
 
+/*maps box names to box-specific occupation deadline hour*/
+extern map<string,string> box_occupation_deadline;
+
 //pair<string,ptime> box_occupation_entry;
-string box_name, box_date,current_programmed_box,current_occup_box;
+string box_name, box_date,current_programmed_box,current_occup_box,box_installation_name,box_installation_date;
 
 extern map<string,unsigned,bool(*)(string,string)> bats_map;
 //extern vector<string> bats_vector;
@@ -50,6 +55,8 @@ DIGIT [0-9]
 HEXDIGIT [a-fA-F0-9]
 LETTER [a-zA-Z]
 %x BOX_OCCUPATION
+%x BOX_OCCUPATION_DEADLINE
+%x BOX_INSTALLATION
 %x BOX_OCCUP_BATS
 %x COMMENT
 %x BATS
@@ -66,11 +73,13 @@ LETTER [a-zA-Z]
 "begin{exportdatabase}"	BEGIN(EXPORTDATABASE);
 "begin{year}"	BEGIN(YEAR);
 "begin{occupation_deadline}"	BEGIN(OCCUPATIONDEADLINE);
+"begin{box_occupation_deadline}"	BEGIN(BOX_OCCUPATION_DEADLINE);
 "begin{lf_delay}"	BEGIN(LFDELAY);
 "begin{bat_update}"	BEGIN(BATUPDATE);
 "begin{transponders}"	BEGIN(TRANSPONDERS);
 "begin{bats}"	BEGIN(BATS);
 "begin{box_occupation}"	BEGIN(BOX_OCCUPATION);
+"begin{box_installation}"	BEGIN(BOX_INSTALLATION);
 "begin{box_programming}" {current_programmed_box="";BEGIN(BOX_PROGRAMMING);}
 "begin{box_occup_bats}" {current_occup_box="";BEGIN(BOX_OCCUP_BATS);}
 <EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
@@ -79,6 +88,8 @@ LETTER [a-zA-Z]
 <BOX_PROGRAMMING>"end{box_programming}" BEGIN(INITIAL);  
 <BOX_OCCUP_BATS>"end{box_occup_bats}" BEGIN(INITIAL);
 <BOX_OCCUPATION>"end{box_occupation}" BEGIN(INITIAL);
+<BOX_OCCUPATION_DEADLINE>"end{box_occupation_deadline}" BEGIN(INITIAL);
+<BOX_INSTALLATION>"end{box_installation}" BEGIN(INITIAL);
 <TRANSPONDERS>"end{transponders}" BEGIN(INITIAL);
 <BATUPDATE>"end{bat_update}" BEGIN(INITIAL);
 <LFDELAY>"end{lf_delay}" BEGIN(INITIAL);
@@ -131,7 +142,6 @@ LETTER [a-zA-Z]
 }
 
 
-
 <YEAR>{DIGIT}{4} {
   pch=strtok(yytext,".");
   Year = pch;
@@ -177,9 +187,20 @@ LETTER [a-zA-Z]
   //bats_vector.push_back(bat_hexid);
 }
  
+<BOX_OCCUPATION_DEADLINE>{DIGIT}+{LETTER}+ {  
+  pch = strtok(yytext,".");
+  box_name = pch;  
+} 
+ 
+<BOX_OCCUPATION_DEADLINE>{DIGIT}{6} {
+  pch = strtok(yytext,".");
+  string str = pch;
+  box_occupation_deadline[box_name] =  str;
+}
+ 
+ 
 
-<BOX_OCCUPATION>{DIGIT}+{LETTER}+ {
-  
+<BOX_OCCUPATION>{DIGIT}+{LETTER}+ {  
   pch = strtok(yytext,".");
   box_name = pch;
   //printf("box: %s\n",box_name.c_str());
@@ -199,6 +220,28 @@ LETTER [a-zA-Z]
   //printf("Time: %s\n",to_simple_string(occupation_time).c_str());
   box_occupation[box_name] =  occupation_time;
 }
+
+<BOX_INSTALLATION>{DIGIT}+{LETTER}+ {  
+  pch = strtok(yytext,".");
+  box_installation_name = pch;
+  //printf("box: %s\n",box_name.c_str());
+}
+
+<BOX_INSTALLATION>{DIGIT}{2}.{DIGIT}{2}.{DIGIT}{4} {
+  string local_day, local_month, local_year;
+  pch = strtok(yytext,".");
+  local_day = pch;
+  pch = strtok(NULL,".");
+  local_month = pch;
+  pch = strtok(NULL,".");
+  local_year = pch;
+  box_installation_date = local_year+local_month+local_day+"T000000"; 
+  //printf("Time: %s\n",box_installation_date.c_str());
+  ptime installation_time(from_iso_string(box_installation_date));  
+  box_installation[box_installation_name] =  installation_time;
+}
+
+
 
 
 {DIGIT}{4}"-"{DIGIT}{2}"-"{DIGIT}{2} {

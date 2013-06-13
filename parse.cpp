@@ -515,29 +515,38 @@ void initBoxes(const char* dirname) {
             if(S_ISDIR(st.st_mode)) {
                 string dir_entry(ent->d_name);
                 ptime &ref = box_occupation[dir_entry];
+		ptime &ref_installation = box_installation[dir_entry];
+		ptime occupation_time = pos_infin;
                 if (ref.is_not_a_date_time())
                     ref = pos_infin;
+		else {
+		    string tmp = to_iso_string(ref);
+		    //cout<<box_occupation_deadline[dir_entry]<<endl;
+		    string new_date = tmp.substr(0,tmp.length()-6) + box_occupation_deadline[dir_entry];
+		    //cout<<dir_entry<<"\t"<<new_date<<endl;
+		    occupation_time = ptime(from_iso_string(new_date));
+		}
                 if (dir_entry.find(all_box) != string::npos) {
-                    Box b(3,dir_entry,ref);
-                    boxes[dir_entry] = b;
+                    Box b(3,dir_entry,occupation_time,ref_installation);		    
+		    boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(majority_box) != string::npos ||
                          dir_entry.find(majority_box2) != string::npos) {
-                    Box b(2,dir_entry,ref);
+                    Box b(2,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(minority_box) != string::npos) {
-                    Box b(1,dir_entry,ref);
+                    Box b(1,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(control_box) != string::npos) {
-                    Box b(0,dir_entry,ref);
+                    Box b(0,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
@@ -636,15 +645,14 @@ int main(int argc, char**argv) {
     argc--;
     /* argv[1] = config file
      */
-    if (argc < /*2*/5 || argc >= /*3*/6) {
+    if (argc != 2) {
         cout<<"Version: "<<version<<endl<<endl;
         cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
         cout<<"<dir>\t full path to the directory containing transponder data files"<<endl;
         cout<<"<config_file>\t full path to the configuration file"<<endl<<endl;
         return 0;
     }
-    if (argc == 5) {
-	
+    else {	
         /*init the months map*/
         monaten["JAN"] = "01";
         monaten["FEB"] = "02";
@@ -675,20 +683,20 @@ int main(int argc, char**argv) {
          * argv[3] = lf_delay
          * argv[4] = occupation_deadline
          */
-        stringstream foo,moo,goo;
-        foo<<argv[2];
-        moo<<argv[3];
-        goo<<argv[4];
-        int tt,gg;
-        foo>>tt;
-        moo>>gg;
-        roundtrip_time = minutes(tt);
-        lf_delay = minutes(gg);
-        occupation_deadline=goo.str();
+        //stringstream foo,moo,goo;
+        //foo<<argv[2];
+        //moo<<argv[3];
+        //goo<<argv[4];
+        //int tt,gg;
+        //foo>>tt;
+        //moo>>gg;
+        //roundtrip_time = minutes(tt);
+        //lf_delay = minutes(gg);
+        //occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13;
-	string outdir="output_files_new_2/2008";//"output_files_new_2";
+	string outdir="output_files_new_2/"+Year;//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -705,14 +713,15 @@ int main(int argc, char**argv) {
 	most_detailed = ss11.str();
 	ss12<<outdir<<"/revisits"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";	
 	revisits = ss12.str();
-	ss13<<outdir<<"/info_spread"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";	
+	ss13<<outdir<<"/info_spread"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<".txt";	
 	info_spread = ss13.str();
 
 	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
         /*remove that later (2)*/
-        //change the occupation deadline of the boxes        
+        //change the occupation deadline of the boxes     
+        /*
         for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end(); kk++) {
             if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {
                 string existingDate = to_iso_string(kk->second.occupiedWhen);
@@ -721,6 +730,7 @@ int main(int argc, char**argv) {
                 kk->second.occupiedWhen = occupation_time;
             }
         }
+        */
         /*********************/	
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
@@ -861,7 +871,7 @@ int main(int argc, char**argv) {
 	    else {
 	      Bat &ref = bats_records[programmed_bat];
 	      if (ref.hexid != programmed_bat) {
-		cout<<"Warning: Mismatch in bat ids "<<ref.hexid<<"-"<<programmed_bat<<endl; //exit(1);
+		cout<<"Info: bat "<<programmed_bat<<" is programmed in a box but no readings exist for her before box occupation"<<endl; //exit(1);
 	      }
 	      mybool &bool_ref = ref.disturbed_in_box[box];
 	      bool_ref.custom_boolean = TRUE;
@@ -876,8 +886,7 @@ int main(int argc, char**argv) {
 	    string occupying_bat = itr_box_occup->second[jj];	    
 	    Bat *ptr = &bats_records[occupying_bat];
 	    if (ptr->hexid != occupying_bat) {
-	      cout<<"Error: Mismatch in bat ids "<<ptr->hexid<<"-"<<occupying_bat<<endl; 
-	      exit(1);
+	      cout<<"Warning: Bat "<<occupying_bat<<" occupied a box, but no readings exist for her before box occupation"<<endl; 	     
 	    }
 	    boxes[box].occupyingBats.push_back(ptr);
 	  }	  
@@ -985,9 +994,13 @@ int main(int argc, char**argv) {
 	    bx->status = DISCOVERED;
 	    bx->discovered(box_bat_entries[0].hexid,box_bat_entries[0].TimeOfEntry);
 	    bx->information_spread.push_back(event("discovery",&bats_records[box_bat_entries[0].hexid],bx,
-						   box_bat_entries[0].TimeOfEntry));
+						   box_bat_entries[0].TimeOfEntry));	  
             //==================================================================
-            //int counter2 = 0;	   
+            /*initialize the map for storing the exploration events.
+	     the map gets reset with each box
+	     bat hexid -> exploration object*/
+	    map<string,event> exploration_objects;
+	    //int counter2 = 0;	   
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
@@ -1004,9 +1017,14 @@ int main(int argc, char**argv) {
 		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
 		  }
 		}
-		else  //exploration
-		  bx->information_spread.push_back(event("exploration",B1,bx,box_bat_entries[i].TimeOfEntry));
-		
+		/*create a provisional exploration object, but NOT for the discovering bat*/
+		if (B1->hexid != bx->discoveredBy.first) {
+		  event &exploration_ref = exploration_objects[B1->hexid];
+		  //if the bat is NAIIVE and no exploration object exists yet then create it		
+		  if (!B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && exploration_ref.eventname == "") 
+		    exploration_ref = event("exploration",B1,bx,box_bat_entries[i].TimeOfEntry);		
+		}
+		/**/
                 b1_ref = box_bat_entries[i].TimeOfEntry;
                 for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {		   
                     Bat *B2 = &bats_records[box_bat_entries[j].hexid];                  
@@ -1015,14 +1033,17 @@ int main(int argc, char**argv) {
 		      b2_know_ref.box_knowledge_how = PERSONAL;
                     if (*B1 == *B2) {
 		      //could be a revisit
-		      time_duration tdur = box_bat_entries[j].TimeOfEntry - B1->last_seen;
+		      time_duration tdur = box_bat_entries[j].TimeOfEntry - B2->last_seen;
 		      if (tdur > revisit_interval.first) {//&& tdur <= revisit_interval.second) {
-			time_duration time_since_last_revisit = box_bat_entries[j].TimeOfEntry - B2->last_revisit;
+ 			ptime &lr = B2->last_revisit[bx->name];			
+			if (lr.is_not_a_date_time()) lr = neg_infin;
+			time_duration time_since_last_revisit = box_bat_entries[j].TimeOfEntry - lr;//B2->last_revisit;
 			if (time_since_last_revisit > revisit_interval.first) {
 			  event new_revisit("revisit",B2,bx,box_bat_entries[j].TimeOfEntry);
 			  B2->my_revisits.push_back(new_revisit);
 			  bx->revisiting_bats.push_back(new_revisit);
-			  B2->last_revisit = box_bat_entries[j].TimeOfEntry;
+			  /*B2->last_revisit*/ lr = box_bat_entries[j].TimeOfEntry;
+			  bx->information_spread.push_back(new_revisit);
 			}
 		      }
 		      B2->last_seen = box_bat_entries[j].TimeOfEntry;
@@ -1061,9 +1082,8 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
 			//is this passive leading?
-			if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
-			  newPair.is_passive_leading = true;
-			
+			//if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
+			  //newPair.is_passive_leading = true;			
 			bool insert_success = B1->insert_pair(newPair);			
 			if (insert_success) {			  
 			  LF_FLAG lf;
@@ -1103,8 +1123,8 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
 			//is this passive leading following?
-                        if (td_update_knowledge > revisit_interval.first)// && td_update_knowledge <= revisit_interval.second)						
-			  newPair.is_passive_leading = true;
+                        //if (td_update_knowledge > revisit_interval.first)// && td_update_knowledge <= revisit_interval.second)						
+			  //newPair.is_passive_leading = true;
 			bool insert_success = B2->insert_pair(newPair);
 			if (insert_success) {			  			
 			  LF_FLAG lf;
@@ -1146,11 +1166,8 @@ int main(int argc, char**argv) {
                         }
                     }
                    //if it doesn't exists simply add it
-                   if (!exists) {
-                       current_box_pairs.push_back(newPair);
-		       //also add the follower into the box information_spread vector
-		       bx->information_spread.push_back(event("following",newPair.follower,bx,newPair.tfollower));
-		   }
+                   if (!exists) 
+                       current_box_pairs.push_back(newPair);		   
 		   //add the leader and the follower of this player to the box objects		       
 		   pair<set<string>::iterator,bool> set_iterator;
 		   set_iterator = bx->leaders.insert(newPair.getLeaderId()); 
@@ -1158,6 +1175,52 @@ int main(int argc, char**argv) {
                 } //end for (unsigned j=i; j<box_bat_entries.size(); j++)
             } //end for (unsigned j=i; j<box_bat_entries.size(); j++) {
             //==================================================================
+            /*check if any of the candidate explorations are in fact following bats in lf events*/
+	    vector<string> tmp; //stores the hexids of the bats that need to be removed from the exploration_objects map
+	    for (map<string,event>::iterator evnt_itr = exploration_objects.begin(); evnt_itr != exploration_objects.end(); evnt_itr++) {
+		string cur_bat = evnt_itr->first;
+		bool found = false;
+		for (unsigned kk=0; kk<current_box_pairs.size(); kk++) {
+		  if (cur_bat == current_box_pairs[kk].follower->hexid)
+		    found = true;
+		}
+		if (found)
+		  tmp.push_back(cur_bat);
+	    }
+	    //now remove the bats who did not explore but were following
+	    for (unsigned kk=0; kk<tmp.size(); kk++) 
+	      int s = exploration_objects.erase(tmp[kk]);
+	    //now assign the remaining exploration objects to the map's information_spread container
+	     for (map<string,event>::iterator evnt_itr = exploration_objects.begin(); evnt_itr != exploration_objects.end(); evnt_itr++) 
+	       bx->information_spread.push_back(evnt_itr->second);	     
+	    /***/  
+	    /*now invalidate all revisits which are in fact leading following*/
+	    for (unsigned kk=0; kk<bx->information_spread.size();kk++) {
+	      if (bx->information_spread[kk].eventname == "revisit") {
+		ptime revisit_time = bx->information_spread[kk].eventtime;
+		for (unsigned ll=0; ll<current_box_pairs.size(); ll++) {
+		  ptime leader_time = current_box_pairs[ll].tleader;
+		  time_duration leading_revisit = leader_time - revisit_time;
+		  if (leading_revisit.is_negative()) 
+		    leading_revisit = leading_revisit.invert_sign();
+		  if (leading_revisit <= revisit_limit)
+		    bx->information_spread[kk].valid = false;
+		}
+	      }
+	    }
+	    /*now take all lf events and create event objects*/
+	    for (unsigned kk=0; kk<current_box_pairs.size(); kk++) {  
+		Bat *bat =  &bats_records[current_box_pairs[kk].getFollowerId()];
+		if (bat->disturbed_in_box[bx->name].custom_boolean == TRUE) {
+		  event leading_following("disturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  bx->information_spread.push_back(leading_following);	     
+		}
+		else {
+		  event leading_following("undisturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  bx->information_spread.push_back(leading_following);	     		  
+		}
+	    }
+	    /**/
             vec_lfpairs.insert(vec_lfpairs.end(),current_box_pairs.begin(),current_box_pairs.end());
             to--; //go back to the last entry of the previous box_entries
             from=to;
@@ -1165,7 +1228,7 @@ int main(int argc, char**argv) {
             if (from == multibats.end()) break;
 	    bx = &boxes[from->box_name];
             //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
-
+	    
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
 	
 	/*output the social vs. personal lf events for each box*/	
@@ -1188,44 +1251,7 @@ int main(int argc, char**argv) {
 	cout<<"DONE"<<endl;
 	*/
 	/****/
-	/*
-	cout<<"Outputting stuff for Nico"<<endl;
-	//ofstream nico("lf-events-per-box.txt",ios::out);
-	ofstream nico("box-discovered.txt",ios::out);
-	if (!nico.good()) {
-            perror("lf-events-per-box.txt");
-            exit(1);
-        }
-        nico<<"Box\t"<<"Discoverer\t"<<"Time of discovery\t"<<"Time of occupation"<<endl;
-	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
-	  nico<<box_itr->first<<"\t"<<box_itr->second.discoveredBy.first<<"\t";
-	  nico<<to_iso_extended_string(box_itr->second.discoveredBy.second)<<"\t";
-	  if (!box_itr->second.occupiedWhen.is_not_a_date_time()) 
-	    nico<<to_iso_extended_string(box_itr->second.occupiedWhen)<<endl;
-	  else nico<<endl;
-	}
-	*/
-        /*
-        nico<<"Leader\t\tFollower\tTime of LF event(leader time)\tBox Name\tStatus of leader (PD/PU/SD/SU)"<<endl;
-        for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
-	  Box *b = &box_itr->second;
-	  for (map<Lf_pair, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {
-	    const Lf_pair *lp = &lf_itr->first;
-	    nico<<lp->leader->hexid<<"\t"<<lp->follower->hexid<<"\t"<<to_iso_extended_string(lp->tleader)<<"\t";
-	    nico<<"\t"<<lp->box_name<<"\t\t";
-	    switch (lf_itr->second.second.this_lf_flag) {
-	      case 1: nico<<"PU"<<endl;break;
-	      case 2: nico<<"PD"<<endl;break;
-	      case 3: nico<<"SU"<<endl;break;
-	      case 4: nico<<"SD"<<endl;break;
-	      default: nico<<"ERROR"<<endl;break;
-	    }	    
-	  }
-	}
-        */
-	//nico.close();
-	//cout<<"DONE"<<endl;
-	/********/
+	
 	cout<<"Outputting revisit statistics for each box...";
 	ofstream os(revisits.c_str(),ios::out);
 	if (!os.good()) {
@@ -1316,17 +1342,19 @@ int main(int argc, char**argv) {
 	os_test.close();
 	/*****/
 	/*output the information spread for each box*/
-	cout<<"Outputting information spread per box ...";
+	cout<<"Outputting information spread per box ...";	
 	os.open(info_spread.c_str(),ios::out);
-	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
-	  for (unsigned jj=0; jj<box_itr->second.information_spread.size();jj++) 
-	    box_itr->second.information_spread[jj].print(&os);	  
-	}
 	if (!os.good()) {
-            perror(lf_time_diff.c_str());
+            perror(info_spread.c_str());
             exit(1);
-        }
-	 
+        } 
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  box_itr->second.sort_information_spread();
+	  box_itr->second.clean_information_spread();
+	  for (unsigned jj=0; jj<box_itr->second.information_spread.size();jj++) 
+	    if (box_itr->second.information_spread[jj].valid)
+	      box_itr->second.information_spread[jj].print(&os);	
+	}	
         os.close();
 	cout<<"DONE"<<endl;
 	/****/

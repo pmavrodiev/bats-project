@@ -2,7 +2,14 @@
 /*verbose flag*/
 bool verbflag=false;
 	
+/*start of experiment*/
+
+//tm start_exp = to_tm(ptime(from_iso_string("20080505T000000"))); //05.05.2008
+tm end_exp   = to_tm(ptime(from_iso_string("20080926T000000"))); //26.09.2008
+
 map<string,ptime> box_occupation;
+map<string,ptime> box_installation;
+map<string,string> box_occupation_deadline;
 map<string,string> monaten; //maps month names to month numbers
 /*the year of the analysis*/
 string Year;
@@ -13,6 +20,8 @@ time_duration roundtrip_time;// = minutes(3);
 time_duration lf_delay;// = minutes(5);
 //min time for revisit
 pair<time_duration, time_duration> revisit_interval(minutes(10),hours(23));
+//max allowed time distance for a revisit to be counted as leading
+time_duration revisit_limit(minutes(2));
 /*at what time (we have the dates from the config file) do we start
  *ignoring readings for a given box*/
 string occupation_deadline;

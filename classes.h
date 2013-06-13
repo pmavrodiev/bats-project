@@ -133,7 +133,9 @@ public:
   Box *box;
   Bat *bat;
   ptime eventtime;
+  bool valid;
   event(string, Bat *,Box *, ptime);
+  event();
   void print(ofstream *);
 };
 
@@ -141,15 +143,15 @@ class Box {
 private:
   struct lfcomp {
     bool operator()(Lf_pair l1, Lf_pair l2) const;
-};
-
-public:
+  };  
+public:   
     short type; //0-control, 1-minority, 2-majority, 3-all
     string name;
     set<BatEntry,batEntryCompare> activity;
     BoxStatus status; //has this box been discovered or not
     pair<string,ptime> discoveredBy; //who discovered the box and when
     ptime occupiedWhen; //when was the box occupied. must be pre-defined
+    ptime installedWhen; //when was the box installed
     /*how the knowledge about this box has spread through the colony
       "knowledge" is each discovery, exploration or following*/
     vector<event> information_spread;
@@ -166,6 +168,12 @@ public:
     vector<Bat *> occupyingBats; //pointers to the bats that occupied that box
     unsigned get_num_occ_bats(); //get the number of occupying bats
     void discovered(string bat_id,ptime when);
+    void sort_information_spread();
+    /*Makes sure that only a bat follows only once to this box
+      typically a bat can follow more than once, if she has participated
+      in an lf event with more than 1 leader. Currently, each of the leaders
+      will get a separate lf event withi the same follower*/
+    void clean_information_spread();
     /*
     returns how many bats who lead or followed (determined by flag)
     occupied the box at the first night of occupation
@@ -181,7 +189,7 @@ public:
     //all activities after this date are ignored!
     //if not occupied this time is set to +inf.
     time_duration getOccupiedDiscoveredDelta();
-    Box(short Type, string Name, ptime occ);
+    Box(short Type, string Name, ptime occ, ptime installation);
     Box();
     void print();
 };
@@ -238,8 +246,9 @@ public:
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
     vector<event> my_revisits;
-    /*last_revisit: misc variable used when identifying the revisits*/
-    ptime last_revisit; //default constructor is neg_infin
+    /*last_revisit: misc variable used when identifying the revisits
+     box_name -> last_revisit*/
+    map<string,ptime> last_revisit; //default constructor is neg_infin
     //amother misc variable, used when identifying the revisits
     ptime last_seen; //default constructor is not_a_date_time
     bool insert_pair(Lf_pair lfp);    //true if pair is inserted, false otherwise

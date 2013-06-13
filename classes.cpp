@@ -7,6 +7,7 @@
 /* ===================================================================== */
 #include "classes.h"
 #include <iostream>
+#include <math.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
@@ -15,6 +16,8 @@ using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
 extern map<string,vector<string> > box_programming;
+extern tm start_exp;
+extern tm end_exp;
 /* ======================== CLASS DEFINITIONS ========================== */
 
 BatEntry::BatEntry(string entry_time, string hex, string name) {
@@ -52,18 +55,45 @@ event::event(string event_name, Bat* whichbat , Box* whichbox, ptime whattime) {
   bat = whichbat;
   box = whichbox;
   eventtime = whattime;
+  valid = true;
 }
+
+event::event() {
+ eventname = "";
+ box = NULL;
+ bat = NULL;
+ eventtime = not_a_date_time;
+ valid = true;
+}
+
 
 void event::print(ofstream *out) {
-  (*out)<<box->name<<"\t"<<eventname<<"\t"<<bat->hexid<<"\t"<<to_simple_string(eventtime)<<endl;
+  tm eventtimetm = to_tm(eventtime);
+  tm occupationtm, installationtm;
+  double occupation;
+  double seconds_per_day = 24.0 * 3600.0;
+  double minutes_per_day = 60.0;
+  installationtm = to_tm(box->discoveredBy.second);//to_tm(box->installedWhen);
+  if (box->occupiedWhen.is_pos_infinity())
+    occupation = 0;
+  else {
+    occupationtm = to_tm(box->occupiedWhen);
+    occupation = difftime(mktime(&occupationtm),mktime(&installationtm)) / minutes_per_day;
+  }  
+  double event_dur = difftime(mktime(&eventtimetm),mktime(&installationtm)) / minutes_per_day;
+  (*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<to_iso_extended_string(eventtime)<<"\t"<<to_iso_extended_string(box->occupiedWhen)<<endl;
+  //(*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<event_dur<<" \t"<<occupation<<endl;
+  
+  
 }
 
- 
-Box::Box(short Type, string Name, ptime occ) {
+
+Box::Box(short Type, string Name, ptime occ, ptime installation) {
   type = Type;
   name = Name;
   this->status = UNDISCOVERED;
   occupiedWhen = occ;
+  installedWhen = installation;
   total_lf_events = 0;
   social_ud_lf_events= 0; 
   social_d_lf_events= 0; 
@@ -95,6 +125,27 @@ void Box::discovered(string bat_id, ptime when) {
   }
   discoveredBy.second=when;
   discoveredBy.first=bat_id;
+}
+
+bool eventcomp(event e1, event e2) {
+   return e1.eventtime < e2.eventtime;
+}
+
+void Box::sort_information_spread() {
+  std::sort(information_spread.begin(),information_spread.end(),eventcomp);
+}
+
+void Box::clean_information_spread() {
+  set<string> tmp;
+  for (unsigned i=0; i<information_spread.size(); i++) {
+    if (information_spread[i].eventname == "undisturbed-following" ||
+        information_spread[i].eventname == "disturbed-following") {
+      pair<set<string>::iterator,bool> insert_itr;
+      insert_itr = tmp.insert(information_spread[i].bat->hexid);
+      if (!insert_itr.second) //could not insert it - bat exists!
+	information_spread[i].valid=false;
+    }
+  }
 }
 
 unsigned Box::get_num_occ_bats() {
@@ -295,7 +346,7 @@ bool Bat::is_informed(string box_name, ptime when) {
    if (box_knowledge[box_name].box_knowledge == NAIIVE) return false;
    //sanity check
    if (informed_since[box_name] == not_a_date_time)
-   std::cerr<<"Warning::Bat should have been informed."<<std::endl;
+    std::cerr<<"Warning::Bat should have been informed."<<std::endl;
    if (informed_since[box_name] > when) return false;
    else return true;
 }
@@ -317,7 +368,7 @@ Bat::Bat(string Id) {
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
   internal_check=0;
-  last_revisit = neg_infin;
+  //last_revisit = neg_infin;
 }
 Bat::Bat() {
   hexid = "";
@@ -326,7 +377,7 @@ Bat::Bat() {
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
   internal_check=0;
-  last_revisit = neg_infin;
+  //last_revisit = neg_infin;
 }
 void Bat::print() {
   std::cout<<"BAT "<<hexid<<std::endl;

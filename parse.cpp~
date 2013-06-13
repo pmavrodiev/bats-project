@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -7,8 +7,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
-#include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
+//#include <boost/foreach.hpp>
+//#include <boost/tokenizer.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <sqlite3.h>
 
+#include "classes.h"
+
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
@@ -32,7 +34,11 @@ using namespace boost::gregorian;
 	 check whether the reading device is the right one for the box. The problem is that
 	 with the ascii format.*/
 
-#include "classes.cpp"
+/*Run configurations
+ 1. Single run - /home/pmavrodiev/Documents/bats/data/GB2_2008 /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 3 5 050000
+*/
+
+
 #include "global_defs.cpp"
 
 /* =========================== GLOBAL FUNCTIONS ======================= */
@@ -509,29 +515,38 @@ void initBoxes(const char* dirname) {
             if(S_ISDIR(st.st_mode)) {
                 string dir_entry(ent->d_name);
                 ptime &ref = box_occupation[dir_entry];
+		ptime &ref_installation = box_installation[dir_entry];
+		ptime occupation_time = pos_infin;
                 if (ref.is_not_a_date_time())
                     ref = pos_infin;
+		else {
+		    string tmp = to_iso_string(ref);
+		    //cout<<box_occupation_deadline[dir_entry]<<endl;
+		    string new_date = tmp.substr(0,tmp.length()-6) + box_occupation_deadline[dir_entry];
+		    //cout<<dir_entry<<"\t"<<new_date<<endl;
+		    occupation_time = ptime(from_iso_string(new_date));
+		}
                 if (dir_entry.find(all_box) != string::npos) {
-                    Box b(3,dir_entry,ref);
-                    boxes[dir_entry] = b;
+                    Box b(3,dir_entry,occupation_time,ref_installation);		    
+		    boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(majority_box) != string::npos ||
                          dir_entry.find(majority_box2) != string::npos) {
-                    Box b(2,dir_entry,ref);
+                    Box b(2,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(minority_box) != string::npos) {
-                    Box b(1,dir_entry,ref);
+                    Box b(1,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
                 else if (dir_entry.find(control_box) != string::npos) {
-                    Box b(0,dir_entry,ref);
+                    Box b(0,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
@@ -553,7 +568,7 @@ void processDataDirectory(string dir_name,string box_name) {
     DIR *data_dir;
     struct dirent *ent;
 
-    //cout<<"Entering "<<dir_name<<endl;
+    cout<<"Entering "<<dir_name<<endl;
     data_dir = opendir (dir_name.c_str());
     short file_counter = 0;
     if (data_dir != NULL) {
@@ -570,9 +585,13 @@ void processDataDirectory(string dir_name,string box_name) {
                 if (file_name.substr(file_name.length()-3,3) == "xls")
                     skip = true;
                 if (skip) continue;
-                cout<<file_name.c_str()<<endl;
+                if (verbflag) cout<<file_name.c_str()<<endl;
                 yyin = fopen(file_name.c_str(),"r");
-                yylex();
+		if (yyin == NULL) {
+		  perror(file_name.c_str());
+		  exit(1);
+		}	
+                yylex();		
                 counter ++;
                 file_counter ++;
                 /*PROCESS THE CONTENTS OF EACH DATA FILE*/
@@ -607,7 +626,8 @@ void processDataDirectory(string dir_name,string box_name) {
                 } //end for (unsigned i=0; i<box_entries.size(); i++) {
                 box_entries.clear();
                 /*******************************************/
-            } //end if
+		fclose(yyin);
+            } //end if           
         } //end while
         cout<<"processed "<<file_counter<<" files"<<endl;
     } // end if (data_dir != NULL) {
@@ -625,14 +645,14 @@ int main(int argc, char**argv) {
     argc--;
     /* argv[1] = config file
      */
-    if (argc < 5 || argc >=6) {
+    if (argc != 2) {
         cout<<"Version: "<<version<<endl<<endl;
         cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
         cout<<"<dir>\t full path to the directory containing transponder data files"<<endl;
         cout<<"<config_file>\t full path to the configuration file"<<endl<<endl;
         return 0;
     }
-    if (argc == 5) {
+    else {	
         /*init the months map*/
         monaten["JAN"] = "01";
         monaten["FEB"] = "02";
@@ -655,35 +675,53 @@ int main(int argc, char**argv) {
             exit(1);
         }
         yylex();
+
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();
         /* remove this later (1)*/
-        /* argv[2] = knowledge_delay
+        /* argv[2] = roundtrip time
          * argv[3] = lf_delay
          * argv[4] = occupation_deadline
          */
-        stringstream foo,moo,goo;
-        foo<<argv[2];
-        moo<<argv[3];
-        goo<<argv[4];
-        int tt,gg;
-        foo>>tt;
-        moo>>gg;
-        knowledge_delay = minutes(tt);
-        lf_delay = minutes(gg);
-        occupation_deadline=goo.str();
+        //stringstream foo,moo,goo;
+        //foo<<argv[2];
+        //moo<<argv[3];
+        //goo<<argv[4];
+        //int tt,gg;
+        //foo>>tt;
+        //moo>>gg;
+        //roundtrip_time = minutes(tt);
+        //lf_delay = minutes(gg);
+        //occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6;
-        ss5<<"output_files_new_2/lf_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13;
+	string outdir="output_files_new_2/"+2007;//"output_files_new_2";
+        ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
-        ss6<<"output_files_new_2/lf_valid_time_diff_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";;
+        ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_valid_time_diff = ss6.str();
-        /***********************/
+	ss7<<outdir<<"/lf_betweenness_preference"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	lf_pairs_valid_betweenness_preference=ss7.str();
+	ss8<<outdir<<"/disturbed_leader"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	disturbed_leader=ss8.str();
+        ss9<<outdir<<"/social-vs-personal-box-lf"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	social_personal_box_lf = ss9.str();
+	ss10<<outdir<<"/bats-lead-follow-behav"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	bats_lead_follow_behav = ss10.str();
+	ss11<<outdir<<"/most-detailed"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	most_detailed = ss11.str();
+	ss12<<outdir<<"/revisits"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";	
+	revisits = ss12.str();
+	ss13<<outdir<<"/info_spread"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<".txt";	
+	info_spread = ss13.str();
+
+	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
         /*remove that later (2)*/
-        //change the occupation deadline of the boxes
+        //change the occupation deadline of the boxes     
+        /*
         for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end(); kk++) {
             if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {
                 string existingDate = to_iso_string(kk->second.occupiedWhen);
@@ -692,7 +730,8 @@ int main(int argc, char**argv) {
                 kk->second.occupiedWhen = occupation_time;
             }
         }
-        /*********************/
+        */
+        /*********************/	
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
 
@@ -720,8 +759,7 @@ int main(int argc, char**argv) {
                 delete [] B;
             }
         }
-        //cout<<relatedness_map.size()<<endl;
-
+      
         //initialize the mother daughter relationships
         //try to read "bats_mother_daughter_pairs_GB2_noMM.txt" in the current dir.
         //first column are mothers, second column are daughters
@@ -803,8 +841,7 @@ int main(int argc, char**argv) {
         cout<<"Total records in all boxes "<<counter<<endl;
         cout<<"\nMULTI BATS "<<multibats.size()<<endl;
 
-        /*generate individual movement history for each bat*/
-        //associate a bat name (string) with the corresponding Bat object
+         /*fill bat_records with movement information for each bat*/        
         for (itr=multibats.begin(); itr != multibats.end(); itr++) {
             BatEntry current = *itr;
             Bat &ref = bats_records[current.hexid]; //this is init of bats_records
@@ -813,11 +850,52 @@ int main(int argc, char**argv) {
             Box *box_ptr = &boxes[current.box_name];
             ref.add_movement(current.TimeOfEntry,box_ptr);
         }
+        /**********************************************************/
+	/*after all bat objects have been created update them with box programming information*/
+	for (map<string,vector<string> >::iterator itr_box_prog = box_programming.begin(); itr_box_prog != box_programming.end(); itr_box_prog++) {	 
+	  string box = itr_box_prog->first;
+	  for (unsigned jj=0; jj<itr_box_prog->second.size(); jj++) {
+	    string programmed_bat = itr_box_prog->second[jj];	    
+	    if (programmed_bat == "all") {
+ 	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
+		mybool bool_true(TRUE); 
+		bitr->second.disturbed_in_box[box] = bool_true;
+	      }
+	    }
+	    else if (programmed_bat == "none") {
+	      for (map<string,Bat,bool>::iterator bitr=bats_records.begin(); bitr != bats_records.end(); bitr++) {
+		mybool bool_false(FALSE);
+		bitr->second.disturbed_in_box[box] = bool_false;
+	      }
+	    }
+	    else {
+	      Bat &ref = bats_records[programmed_bat];
+	      if (ref.hexid != programmed_bat) {
+		cout<<"Info: bat "<<programmed_bat<<" is programmed in a box but no readings exist for her before box occupation"<<endl; //exit(1);
+	      }
+	      mybool &bool_ref = ref.disturbed_in_box[box];
+	      bool_ref.custom_boolean = TRUE;
+	    }
+	  }	  
+	}
+        
+        /*after all box objects have been created update the box objects with occupying information*/
+	for (map<string,vector<string> >::iterator itr_box_occup = box_occup_bats.begin(); itr_box_occup != box_occup_bats.end(); itr_box_occup++) {	 
+	  string box = itr_box_occup->first;
+	  for (unsigned jj=0; jj<itr_box_occup->second.size(); jj++) {
+	    string occupying_bat = itr_box_occup->second[jj];	    
+	    Bat *ptr = &bats_records[occupying_bat];
+	    if (ptr->hexid != occupying_bat) {
+	      cout<<"Warning: Bat "<<occupying_bat<<" occupied a box, but no readings exist for her before box occupation"<<endl; 	     
+	    }
+	    boxes[box].occupyingBats.push_back(ptr);
+	  }	  
+	}
+	
         //associate mothers to daughters
         for (map<string,unsigned int>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-            //for (unsigned i=0; i<nbats; i++) {
-            Bat &ref = bats_records[i->first];
-            //Bat &ref = bats_records[bats_vector[i]];
+	    /*Here, if there is a bat with no records in the data from bats_map, it will be added to bats_records*/
+            Bat &ref = bats_records[i->first];           
             //if no records exist for this bat then we need to init also its hexid,
             //because it would be an empty string
             ref.hexid = i->first;
@@ -882,7 +960,7 @@ int main(int argc, char**argv) {
             string bat = j->second.hexid;
             mother_itr = find(mothers.begin(),mothers.end(),bat);
             daughters_itr = find(daughters.begin(),daughters.end(),bat.substr(bat.length()-4,4));
-            if (mother_itr == mothers.end() && daughters_itr == daughters.end()) {
+            if (mother_itr == mothers.end() && daughters_itr == daughters.end() && verbflag) {
                 cout<<bat<<" not found as either mother or daughter in the mother-daughter file"<<endl;
             }
         }
@@ -894,9 +972,13 @@ int main(int argc, char**argv) {
         vector<Lf_pair> vec_lfpairs;
 
         //IMPORTANT: DO THE ANALYSIS ONE BOX AT A TIME!!!!
+	//ss_test used for testing 
+	stringstream ss_test;
+	ss_test<<outdir<<"/test"<<Year;
+	ofstream os_test(ss_test.str().c_str(),ios::out);
+	    
         for (to=multibats.begin(); to != multibats.end(); to++) {
-            //find the boundaries of a box
-            cout<<"Box: "<<bx->name<<endl;
+            //find the boundaries of a box         
             //cout<<to->box_name<<endl;
             vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
             map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
@@ -908,50 +990,172 @@ int main(int argc, char**argv) {
                 box_bat_entries.push_back(*cur);
                 cur++;
             }
-            /*main pairing loop. no enforcement of max. leader-follower time difference*/
-            //the first bat is the discoverer, i.e. she is automatically experienced
-            bats_records[box_bat_entries[0].hexid].box_knowledge[bx->name]=EXPERIENCED;
-            bats_records[box_bat_entries[0].hexid].informed_since[bx->name]=box_bat_entries[0].TimeOfEntry;
-            boxes[bx->name].status = DISCOVERED;
+            /*main pairing loop. */
+	    bx->status = DISCOVERED;
+	    bx->discovered(box_bat_entries[0].hexid,box_bat_entries[0].TimeOfEntry);
+	    bx->information_spread.push_back(event("discovery",&bats_records[box_bat_entries[0].hexid],bx,
+						   box_bat_entries[0].TimeOfEntry));	  
             //==================================================================
-            //int counter2 = 0;
+            /*initialize the map for storing the exploration events.
+	     the map gets reset with each box
+	     bat hexid -> exploration object*/
+	    map<string,event> exploration_objects;
+	    //int counter2 = 0;	   
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
-                //cout<<++counter2<<". Comparing "<<box_bat_entries[i].hexid<<" with ";
+                box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
-                lastSeen[box_bat_entries[i].hexid] = box_bat_entries[i].TimeOfEntry;
-                for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {
-                    Bat *B2 = &bats_records[box_bat_entries[j].hexid];
-                    //cout<<box_bat_entries[j].hexid<<endl;
+		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
+		B1->last_seen = box_bat_entries[i].TimeOfEntry;
+		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];		
+		if (b1_know_ref.box_knowledge_how == UNDEFINED) 
+		  b1_know_ref.box_knowledge_how = PERSONAL;
+		time_duration t_d(1,0,0,0); //1 hour, dummy value
+		if (!b1_ref.is_not_a_date_time()) { //seen it before
+		  t_d =  box_bat_entries[i].TimeOfEntry - b1_ref;		  
+		  if (t_d > roundtrip_time && !B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {		    
+		    b1_know_ref.box_knowledge = EXPERIENCED;		     
+		    B1->make_informed(bx->name,box_bat_entries[i].TimeOfEntry);
+		  }
+		}
+		/*create a provisional exploration object, but NOT for the discovering bat*/
+		if (B1->hexid != bx->discoveredBy.first) {
+		  event &exploration_ref = exploration_objects[B1->hexid];
+		  //if the bat is NAIIVE and no exploration object exists yet then create it		
+		  if (!B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && exploration_ref.eventname == "") 
+		    exploration_ref = event("exploration",B1,bx,box_bat_entries[i].TimeOfEntry);		
+		}
+		/**/
+                b1_ref = box_bat_entries[i].TimeOfEntry;
+                for (unsigned j=(i+1); j<box_bat_entries.size(); j++) {		   
+                    Bat *B2 = &bats_records[box_bat_entries[j].hexid];                  
+		    BatKnowledge &b2_know_ref = B2->box_knowledge[bx->name];
+		    if (b2_know_ref.box_knowledge_how == UNDEFINED)
+		      b2_know_ref.box_knowledge_how = PERSONAL;
                     if (*B1 == *B2) {
-                        /*cout<<"\t"<<"identical"<<endl;*/continue;   //no self lf events
-                    }
+		      //could be a revisit
+		      time_duration tdur = box_bat_entries[j].TimeOfEntry - B2->last_seen;
+		      if (tdur > revisit_interval.first) {//&& tdur <= revisit_interval.second) {
+ 			ptime &lr = B2->last_revisit[bx->name];			
+			if (lr.is_not_a_date_time()) lr = neg_infin;
+			time_duration time_since_last_revisit = box_bat_entries[j].TimeOfEntry - lr;//B2->last_revisit;
+			if (time_since_last_revisit > revisit_interval.first) {
+			  event new_revisit("revisit",B2,bx,box_bat_entries[j].TimeOfEntry);
+			  B2->my_revisits.push_back(new_revisit);
+			  bx->revisiting_bats.push_back(new_revisit);
+			  /*B2->last_revisit*/ lr = box_bat_entries[j].TimeOfEntry;
+			  bx->information_spread.push_back(new_revisit);
+			}
+		      }
+		      B2->last_seen = box_bat_entries[j].TimeOfEntry;
+                      continue; 
+		    }
                     //first update this bat's knowledge about the given box, if necessary
-                    ptime &ref = lastSeen[box_bat_entries[j].hexid];
-                    if (ref.is_not_a_date_time()) ref = pos_infin;
-                    time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;
-                    if (td_update_knowledge > knowledge_delay && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
-                        B2->box_knowledge[bx->name] = EXPERIENCED;
+                    ptime &ref = lastSeen[B2->hexid];
+                    if (ref.is_not_a_date_time()) 
+		      ref = pos_infin;
+                    time_duration td_update_knowledge = box_bat_entries[j].TimeOfEntry - ref;                    
+		    if (td_update_knowledge > roundtrip_time && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
+			b2_know_ref.box_knowledge = EXPERIENCED;			
                         B2->make_informed(bx->name,box_bat_entries[j].TimeOfEntry);
                     }
-                    ref = box_bat_entries[j].TimeOfEntry;
-                    //cout<<B1->hexid<<": "<<B1->informed(bx->name,box_bat_entries[i].TimeOfEntry)<<endl;
-                    //cout<<B2->hexid<<": "<<B2->informed(bx->name,box_bat_entries[j].TimeOfEntry)<<endl;
+                    ref = box_bat_entries[j].TimeOfEntry;               
                     //are both bats informed or are both naiive about that box at this time?
                     if ((!B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && !B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) ||
                             (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry) && B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)))
                         continue;
-                    //if the pair is suitable, materialize it disregarding the time distance between B1 and B2
-                    Lf_pair newPair;
-                    if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) {
-                        newPair.init(B1,B2,box_bat_entries[i].TimeOfEntry,box_bat_entries[j].TimeOfEntry,bx->name);
+                    //if the pair is suitable, materialize it only if the time distance between B1 and B2 allows it
+                    time_duration tdur= b1_ref -ref;
+		    if (tdur.is_negative()) tdur=tdur.invert_sign();
+		    if (tdur > lf_delay) continue; //skip the pair if invalid
+		    /*both bats B1 and B2 can now be considered to have taken part in an lf-event*/
+		    B1->part_of_lf_event = true;
+		    B2->part_of_lf_event = true;
+	            Lf_pair newPair;
+                    if (B1->is_informed(bx->name,b1_ref)) {
+			b2_know_ref.box_knowledge_how = SOCIAL;		
+                        newPair.init(B1,B2,b1_ref,ref,bx->name);			
+			mybool &bool_ref = B1->disturbed_in_box[bx->name];
+			if (bool_ref.custom_boolean == UNINITIALIZED) {
+			  cerr<<"Error: Something went wrong with reading the box programming information"<<endl;
+			  exit(1);
+			}
+			if (bool_ref.custom_boolean)
+			  newPair.leader_disturbed = true;
+			//is this passive leading?
+			//if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
+			  //newPair.is_passive_leading = true;			
+			bool insert_success = B1->insert_pair(newPair);			
+			if (insert_success) {			  
+			  LF_FLAG lf;
+			  if (b1_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
+			    bx->personal_ud_lf_events++;lf.this_lf_flag=PERSONAL_UNDISTURBED;
+			  }
+			  else if (b1_know_ref.box_knowledge_how == PERSONAL && bool_ref.custom_boolean) {
+			    bx->personal_d_lf_events++;lf.this_lf_flag=PERSONAL_DISTURBED;
+			  }
+			  else if (b1_know_ref.box_knowledge_how == SOCIAL && !bool_ref.custom_boolean) {
+			    bx->social_ud_lf_events++;lf.this_lf_flag=SOCIAL_UNDISTURBED;
+			  }
+ 			  else if (b1_know_ref.box_knowledge_how == SOCIAL && bool_ref.custom_boolean) {
+			    bx->social_d_lf_events++;lf.this_lf_flag=SOCIAL_DISTURBED;
+			  }
+			  else {
+			    cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			    exit(1);
+			  }
+			  bx->total_lf_events++;
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[newPair/*B1->hexid*/];
+			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}
+			  else lf_ref.first++;
+			}
                     }
-                    else if (B2->is_informed(bx->name,box_bat_entries[j].TimeOfEntry)) {
-                        newPair.init(B2,B1,box_bat_entries[j].TimeOfEntry,box_bat_entries[i].TimeOfEntry,bx->name);
+                    else if (B2->is_informed(bx->name,ref)) {			
+			b1_know_ref.box_knowledge_how = SOCIAL;
+                        newPair.init(B2,B1,ref,b1_ref,bx->name);						
+			
+			mybool &bool_ref = B2->disturbed_in_box[bx->name];
+			if (bool_ref.custom_boolean == UNINITIALIZED) {
+			  cerr<<"Error: Something went wrong with reading the box programming information!"<<endl;
+			  cerr<<"Additional info: box "<<bx->name<<" bat: "<<B2->hexid<<endl;
+			  //exit(1);
+			}
+			if (bool_ref.custom_boolean)
+			  newPair.leader_disturbed = true;
+			//is this passive leading following?
+                        //if (td_update_knowledge > revisit_interval.first)// && td_update_knowledge <= revisit_interval.second)						
+			  //newPair.is_passive_leading = true;
+			bool insert_success = B2->insert_pair(newPair);
+			if (insert_success) {			  			
+			  LF_FLAG lf;
+			  if (b2_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
+			    bx->personal_ud_lf_events++;lf.this_lf_flag=PERSONAL_UNDISTURBED;
+			  }
+			  else if (b2_know_ref.box_knowledge_how == PERSONAL && bool_ref.custom_boolean) {
+			    bx->personal_d_lf_events++;lf.this_lf_flag=PERSONAL_DISTURBED;
+			  }
+			  else if (b2_know_ref.box_knowledge_how == SOCIAL && !bool_ref.custom_boolean) {
+			    bx->social_ud_lf_events++;lf.this_lf_flag=SOCIAL_UNDISTURBED;
+			  }
+ 			  else if (b2_know_ref.box_knowledge_how == SOCIAL && bool_ref.custom_boolean) {
+			    bx->social_d_lf_events++;lf.this_lf_flag=SOCIAL_DISTURBED;
+			  }
+			  else {
+			    cerr<<"Sanity check failed: Box UNINITIALIZED"<<endl;
+			    exit(1);
+			  }
+			  bx->total_lf_events++;
+			  pair<unsigned,LF_FLAG> &lf_ref=bx->lf_events[newPair/*B2->hexid*/];
+			  lf_ref.second.this_lf_flag = lf.this_lf_flag;
+			  if (lf_ref.second.this_lf_flag == UNINIT) {lf_ref.first=1;}			  
+			  else lf_ref.first++;
+			   
+			}
                     }
                     else cout<<"Warning::Sanity checks failed"<<endl;
                     //check if the pair already exists
                     bool exists = false;
-                    for (unsigned k=0; k<current_box_pairs.size(); k++) {
+		    for (unsigned k=0; k<current_box_pairs.size(); k++) {
                         if (current_box_pairs[k].equals(newPair)) {
                             //if it exists, update the current pair but only if the new pair has lower
                             //time difference between leader and follower
@@ -961,68 +1165,300 @@ int main(int argc, char**argv) {
                             break;
                         }
                     }
-                    //if it doesn't exists simply add it
-                    if (!exists)
-                        current_box_pairs.push_back(newPair);
+                   //if it doesn't exists simply add it
+                   if (!exists) 
+                       current_box_pairs.push_back(newPair);		   
+		   //add the leader and the follower of this player to the box objects		       
+		   pair<set<string>::iterator,bool> set_iterator;
+		   set_iterator = bx->leaders.insert(newPair.getLeaderId()); 
+		   set_iterator = bx->followers.insert(newPair.getFollowerId());                         
                 } //end for (unsigned j=i; j<box_bat_entries.size(); j++)
             } //end for (unsigned j=i; j<box_bat_entries.size(); j++) {
             //==================================================================
+            /*check if any of the candidate explorations are in fact following bats in lf events*/
+	    vector<string> tmp; //stores the hexids of the bats that need to be removed from the exploration_objects map
+	    for (map<string,event>::iterator evnt_itr = exploration_objects.begin(); evnt_itr != exploration_objects.end(); evnt_itr++) {
+		string cur_bat = evnt_itr->first;
+		bool found = false;
+		for (unsigned kk=0; kk<current_box_pairs.size(); kk++) {
+		  if (cur_bat == current_box_pairs[kk].follower->hexid)
+		    found = true;
+		}
+		if (found)
+		  tmp.push_back(cur_bat);
+	    }
+	    //now remove the bats who did not explore but were following
+	    for (unsigned kk=0; kk<tmp.size(); kk++) 
+	      int s = exploration_objects.erase(tmp[kk]);
+	    //now assign the remaining exploration objects to the map's information_spread container
+	     for (map<string,event>::iterator evnt_itr = exploration_objects.begin(); evnt_itr != exploration_objects.end(); evnt_itr++) 
+	       bx->information_spread.push_back(evnt_itr->second);	     
+	    /***/  
+	    /*now invalidate all revisits which are in fact leading following*/
+	    for (unsigned kk=0; kk<bx->information_spread.size();kk++) {
+	      if (bx->information_spread[kk].eventname == "revisit") {
+		ptime revisit_time = bx->information_spread[kk].eventtime;
+		for (unsigned ll=0; ll<current_box_pairs.size(); ll++) {
+		  ptime leader_time = current_box_pairs[ll].tleader;
+		  time_duration leading_revisit = leader_time - revisit_time;
+		  if (leading_revisit.is_negative()) 
+		    leading_revisit = leading_revisit.invert_sign();
+		  if (leading_revisit <= revisit_limit)
+		    bx->information_spread[kk].valid = false;
+		}
+	      }
+	    }
+	    /*now take all lf events and create event objects*/
+	    for (unsigned kk=0; kk<current_box_pairs.size(); kk++) {  
+		Bat *bat =  &bats_records[current_box_pairs[kk].getFollowerId()];
+		if (bat->disturbed_in_box[bx->name].custom_boolean == TRUE) {
+		  event leading_following("disturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  bx->information_spread.push_back(leading_following);	     
+		}
+		else {
+		  event leading_following("undisturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  bx->information_spread.push_back(leading_following);	     		  
+		}
+	    }
+	    /**/
             vec_lfpairs.insert(vec_lfpairs.end(),current_box_pairs.begin(),current_box_pairs.end());
             to--; //go back to the last entry of the previous box_entries
             from=to;
             from++; //move the "from" pointer to the first entry of the new box
             if (from == multibats.end()) break;
-            bx->name = from->box_name;
-
+	    bx = &boxes[from->box_name];
+            //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
+	    
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
-
-        //invalidate those pairs that violate lf_delay
-        for (unsigned h=0; h<vec_lfpairs.size(); h++)
-            vec_lfpairs[h].validate(lf_delay);
-
+	
+	/*output the social vs. personal lf events for each box*/	
+	/*
+	ofstream os(social_personal_box_lf.c_str(),ios::out);
+	if (!os.good()) {
+            perror(social_personal_box_lf.c_str());
+            exit(1);
+        }
+        cout<<"Outputting personal and social lf events for each box...";
+	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {  
+	  os<<b_itr->first<<" "<<b_itr->second.personal_d_lf_events+b_itr->second.personal_ud_lf_events<<" ";
+	  os<<b_itr->second.social_d_lf_events+b_itr->second.social_ud_lf_events<<" "<<b_itr->second.total_lf_events<<" ";
+	  if (b_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
+	    os<<"NA"<<endl;
+	  else
+	    os<<b_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0<<endl;
+	}	
+	os.close();
+	cout<<"DONE"<<endl;
+	*/
+	/****/
+	
+	cout<<"Outputting revisit statistics for each box...";
+	ofstream os(revisits.c_str(),ios::out);
+	if (!os.good()) {
+            perror(revisits.c_str());
+            exit(1);
+        }
+        for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  Box *b = &box_itr->second;
+	  os<<b->name<<" "<<endl;
+	  for (unsigned i=0; i < b->revisiting_bats.size(); i++) {
+	    os<<b->revisiting_bats[i].bat->hexid<<"\t";
+	    os<<to_simple_string(b->revisiting_bats[i].eventtime)<<endl;
+	  }
+	}
+        os.close();
+	cout<<"DONE"<<endl;	
+	cout<<"Outputting detailed box statistics...";
+	os.open(most_detailed.c_str(),ios::out);
+	if (!os.good()) {
+            perror(most_detailed.c_str());
+            exit(1);
+        }
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  Box *b = &box_itr->second;
+	  os<<b->name<<" ";
+	  int n_passive_lf = 0;
+	  for (map<Lf_pair, pair<unsigned,LF_FLAG> >::iterator lf_itr=b->lf_events.begin(); lf_itr!=b->lf_events.end();lf_itr++) {	    
+	    os<<lf_itr->first.leader->hexid<<"/"<<lf_itr->second.first<<"/"<<lf_itr->second.second.this_lf_flag<<"/";
+	    os<<lf_itr->first.follower->hexid<<"/"<<((lf_itr->first.is_passive_leading) ? "1":"0")<<"\t";
+	    if (lf_itr->first.is_passive_leading)
+	      n_passive_lf++;
+	  }
+	  os<<box_itr->second.personal_d_lf_events+box_itr->second.personal_ud_lf_events<<"\t";
+	  os<<box_itr->second.social_d_lf_events+box_itr->second.social_ud_lf_events<<"\t"<<box_itr->second.total_lf_events<<"\t";
+	  if (box_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
+	    os<<"NA";
+	  else
+	    os<<box_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0;	  
+	  os<<"\t"<<(box_itr->second.total_lf_events == 0 ? 0.0 : float(n_passive_lf) / float(box_itr->second.total_lf_events));
+	  os<<endl;
+	}
+	os.close();
+	cout<<"DONE"<<endl;	
+	
+	/*output the lf behaviour of each bat for each of her lf events*/
+	cout<<"Outputting lf behaviour for each bat for each of her lf events...";	
+	os.open(bats_lead_follow_behav.c_str(),ios::out);	
+	if (!os.good()) {
+	  perror(bats_lead_follow_behav.c_str());
+	  exit(1);
+	}	
+	for (map<string,Bat>::iterator b_itr=bats_records.begin(); b_itr!=bats_records.end(); b_itr++) {
+	  for (unsigned k=0; k<b_itr->second.my_lfpairs.size(); k++) {
+	    Lf_pair *lf_ptr = &b_itr->second.my_lfpairs[k];
+	    if (!b_itr->second.hexid.compare("0000641775")) lf_ptr->print(&os_test);
+	    //sanity check
+	    if (b_itr->second.hexid.compare(lf_ptr->getLeaderId()))  //not equal if true
+	     {cerr<<"Sanity checks failed: Bats ids do not match"<<endl; exit(1);}
+	    os<<b_itr->second.hexid<<" "<<to_iso_extended_string(lf_ptr->tleader)<<" ";
+	    //LF_FLAG my_lf_flag;
+	    if (!lf_ptr->leader_disturbed && 
+		b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == PERSONAL)
+		  os<<PERSONAL_UNDISTURBED<<endl;
+	    else if (lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == PERSONAL)
+		  os<<PERSONAL_DISTURBED<<endl;
+	    else if (!lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == SOCIAL)
+		  os<<SOCIAL_UNDISTURBED<<endl;
+	    else if (lf_ptr->leader_disturbed && 
+		 b_itr->second.box_knowledge[lf_ptr->box_name].box_knowledge_how == SOCIAL)
+		  os<<SOCIAL_DISTURBED<<endl;
+	    else {cerr<<"Sanity checks failed: impossible combination"<<endl;}	
+	  }
+	}
+	os.close();	
+	cout<<"DONE"<<endl;
+	os_test.close();
+	/*** OUTPUT THE ASSOCIATION BETWEEN OCUPPYING AND LEADING/FOLLOWING BATS****/
+	cout<<"Identifying who the occupying bats are...";
+	os_test.open(ss_test.str().c_str(),ios::app);
+	os_test<<endl<<endl;
+	os_test<<"Box\t#occ dist.leaders(all leaders)\t#occ undist leaders(all leaders)\t#occ. dist.followers(all followers)\t#occ. undist.followers(all followers)\t#naive\t#experienced"<<endl;
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  os_test<<box_itr->second.name<<"\t\t"<<box_itr->second.howmany_leaders_followers()<<endl;
+	}
+	cout<<"DONE"<<endl;
+	os_test.close();
+	/*****/
+	/*output the information spread for each box*/
+	cout<<"Outputting information spread per box ...";	
+	os.open(info_spread.c_str(),ios::out);
+	if (!os.good()) {
+            perror(info_spread.c_str());
+            exit(1);
+        } 
+	for (map<string,Box>::iterator box_itr=boxes.begin(); box_itr!=boxes.end(); box_itr++) {
+	  box_itr->second.sort_information_spread();
+	  box_itr->second.clean_information_spread();
+	  for (unsigned jj=0; jj<box_itr->second.information_spread.size();jj++) 
+	    if (box_itr->second.information_spread[jj].valid)
+	      box_itr->second.information_spread[jj].print(&os);	
+	}	
+        os.close();
+	cout<<"DONE"<<endl;
+	/****/
+	/*output the leader_disturbed flag for all valid pairs*/
+	os.open(disturbed_leader.c_str(),ios::out);
+	if (!os.good()) {
+            perror(lf_time_diff.c_str());
+            exit(1);
+        }
+        cout<<"Outputting distrubed/undisturbed status for leaders in all valid lf events...";
+        for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+            if (vec_lfpairs[i].valid) {
+		if (vec_lfpairs[i].leader_disturbed)
+		  os<<1<<endl;
+		else
+		  os<<0<<endl;
+	    }
+	}   
+	os.close();
+	cout<<"DONE"<<endl;
         /*output all matched pairs*/
-        ofstream os(lf_time_diff.c_str(),ios::out);
+	/*
+        os.open(lf_time_diff.c_str(),ios::out);
         if (!os.good()) {
             perror(lf_time_diff.c_str());
             exit(1);
         }
         for (unsigned i=0; i<vec_lfpairs.size(); i++)
-            os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
-
+	    vec_lfpairs[i].print(&os);
+            //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
         os.close();
+	*/
         //output only valid pairs, i.e. those which respect the max. allowed delay b/n leader and follower
         os.open(lf_valid_time_diff.c_str(),ios::out);
         if (!os.good()) {
             perror(lf_valid_time_diff.c_str());
             exit(1);
         }
+        cout<<"Outputting all valid lf pairs...";
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
-            if (vec_lfpairs[i].valid) {
-                os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
-            }
+            if (vec_lfpairs[i].valid) 
+	        vec_lfpairs[i].print(&os);
+                //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
+            
         }
         os.close();
+	cout<<"DONE"<<endl;
+	/*output all valid lf pairs, sorted by time of recording the leader. used as input to plot betweenness preference*/
+	sort(vec_lfpairs.begin(),vec_lfpairs.end(),Lf_pair_compare);
+	os.open(lf_pairs_valid_betweenness_preference.c_str(),ios::out);
+        if (!os.good()) {
+            perror(lf_pairs_valid_betweenness_preference.c_str());
+            exit(1);
+        }
+        cout<<"Outputting all valid lf pairs reformatted for calculating betweenness preference...";
+        os<<"leader follower time_leader time_follower box_name leader-knows-how leader-knowledge"<<endl;
+	for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+            if (vec_lfpairs[i].valid) {
+		vec_lfpairs[i].print(&os);                
+            }
+        }
+	os.close();
+	cout<<"DONE"<<endl;
+	/*****************************************************/
         /*store the number of leading events that a leader has taken part of,
         regardless the number of following individuals*/
         map<string,unsigned> bats_lead_stats;
         /*store the number of times a bat has followed*/
         map<string,unsigned> bats_follow_stats;
-        /*compute the nodes sizes and colors, and the edge thickness and colors for the graph, based on the detected lf_pairs*/
-        map<unsigned,unsigned> bat_id2matrix_id; //maps the bat_id from bats_map to a consequtive range of ids for lf_adjmatrix
+
+	/*compute the nodes sizes and colors, and the edge thickness and colors for the graph, based on the detected lf_pairs*/
+	
+	//maps the bat_id from bats_map to a consequtive range of ids for lf_adjmatrix
         //we need this if the bats with recordings are fewer than the total #of bats
+	map<unsigned,unsigned> bat_id2matrix_id; 
+        
         /*stores a directed edge between follower and leader*/
-        map<pair<unsigned,unsigned>,double,bool(*)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) > edges(fn_pt3); //maps an edge to its width. an edge is a pair FROM and TO.
+	//maps an edge to its width. an edge is a pair FROM and TO.
+        map<pair<unsigned,unsigned>,double,bool(*)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) > edges(fn_pt3); 
+	
         map<int,unsigned> nodes; //maps a node_id to its size
-        double starting_node_size = 9.0;
+        //double starting_node_size = 9.0;
         double edges_starting_width = 1.0;
         int total_valid_pairs = 0;
         unsigned consequtive_ids=0;
+	
+	/*count how many bats have been part of lf events*/
+	unsigned int total_bats_in_lf_events = 0;
+	for (map<string,Bat>::iterator i=bats_records.begin(); i != bats_records.end(); i++) 
+	  if (i->second.part_of_lf_event)
+	    total_bats_in_lf_events++;
+        /*create an empty directed igraph with all bats and no edges yet*/
+        igraph_matrix_t lf_adjmatrix; //square matrix
+        igraph_matrix_init(&lf_adjmatrix,total_bats_in_lf_events,total_bats_in_lf_events); //init the square matrix
+        igraph_matrix_null(&lf_adjmatrix);
+        //igraph_vector_t final_page_rank;
+	
+	/*create edges*/
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
             Lf_pair lfpair = vec_lfpairs[i];
             if (lfpair.valid) { //only valid pairs
+	        total_valid_pairs++;
                 Bat *leader = &bats_records[lfpair.getLeaderId()];
                 leader->total_following++; //one more bat has followed me
-                total_valid_pairs++;
                 string leader_hexid = lfpair.getLeaderId(),follower_hexid=lfpair.getFollowerId();
                 bats_lead_stats[leader_hexid]++;
                 bats_follow_stats[follower_hexid]++;
@@ -1067,7 +1503,10 @@ int main(int argc, char**argv) {
                     related_itr = relatedness_map.find(leader_follower_order);
                     if (related_itr != relatedness_map.end())
                         leader->cumulative_relatedness += related_itr->second; //found it
-                    else cout<<"Warning: No relatedness data between "<<leader_hexid<<" and "<<follower_hexid<<endl;
+                    else {
+		      if (verbflag)
+			cout<<"Warning: No relatedness data between "<<leader_hexid<<" and "<<follower_hexid<<endl;
+		    }
                 }
                 else
                     leader->cumulative_relatedness += related_itr->second; //found it
@@ -1077,14 +1516,17 @@ int main(int argc, char**argv) {
                 if (edges.find(edge_pair) == edges.end()) //edge does not exist
                     edges[edge_pair] = edges_starting_width;
                 else 
-                    edges[edge_pair]++ ; //increase the width linearly
-                   
+                    edges[edge_pair]++ ; //increase the width linearly                   
                 /**********************/
+		/*add/update the edge to the adjacency matrix*/
+		MATRIX(lf_adjmatrix,bat_id2matrix_id[bats_map[follower_hexid]], bat_id2matrix_id[bats_map[leader_hexid]])++;		
             }
         }
+        /****************************************/
+
         /*create the cxf file*/
         stringstream cxf;
-        cxf<<"output_files_new_2/lead_follow_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
+        cxf<<outdir<<"/lead_follow_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
         ofstream cxffile(cxf.str().c_str(),ios::trunc);
 	//add the nodes
 	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
@@ -1096,86 +1538,100 @@ int main(int argc, char**argv) {
         //add the edges
         for (map<pair<unsigned,unsigned>, double>::iterator itr2=edges.begin(); itr2 != edges.end(); itr2++) {
 	  cxffile<<"edge: ("<<itr2->first.first+1<<","<<itr2->first.second+1<<") width{"<<itr2->second<<"} ";
-	  cxffile<<" color{0.54,0.54,0.54};"<<endl;
+	  cxffile<<" color{0.54,0.54,0.54}"<<endl;
 	}
 	/***************************/
 	cxffile.close();
-	exit(0);
 	
-        /*create an empty directed igraph with all bats and no edges yet*/
-        igraph_matrix_t lf_adjmatrix; //square matrix
-        igraph_matrix_init(&lf_adjmatrix,total_bats_movinghistory,total_bats_movinghistory); //init the square matrix
-        igraph_matrix_null(&lf_adjmatrix);
-        igraph_vector_t final_page_rank;
-
-
-        //first init a map between hexids and initial node sizes
-        map<string,double> bat_nodes;
-
-        
-
-        /*add/update the edge to the adjacency matrix*/
-        //MATRIX(lf_adjmatrix,bats_map[lfpair.getFollowerId()], bats_map[lfpair.getLeaderId()])++;
-        //calculate the pagerank of the graph
+	/*calculate assortativity*/
         igraph_t g2;
-        igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",true);
-        igraph_vector_t eigenvector;
-        igraph_vector_init(&eigenvector,nbats);
-        igraph_vector_null(&eigenvector);
-        igraph_arpack_options_t aroptions;
-        igraph_arpack_options_init(&aroptions);
-        igraph_vs_t vs;
-        igraph_vs_all(&vs);
-        igraph_pagerank_old(&g2,&eigenvector,vs,true,300,0.001,0.99,false);
-        igraph_vector_copy(&final_page_rank,&eigenvector);  //save the final page rank vector
-        //update the size and colors of all nodes
-        for (map<string,unsigned>::iterator j=bats_map.begin(); j!=bats_map.end(); j++) {
-            //for (unsigned j=0; j<nbats; j++) {
-            Bat b1 = bats_records[j->first];
-            if (!b1.part_of_lf_event) continue; //skip this bat, if not part of any lf event
-            double percentage_following = (b1.total_following == 0) ? 0 :
-                                          b1.n_daughters_following / b1.total_following;
-            double mean_relatedness = (b1.total_following == 0) ? 0 :
-                                      b1.cumulative_relatedness / b1.total_following;
-            int idx=-1;
-            if (what_node_sizes == 1)
-                idx=binData(mean_relatedness,1);
-            else if (what_node_sizes == 0)
-                idx=binData(percentage_following,0);
-            else if (what_node_sizes == 2)
-                idx = binData(b1.total_following,2);
-            if (idx == -1)  {
-                cout<<"Error: Invalid index "<<percentage_following<<" or "<<mean_relatedness<<" or "<<b1.total_following<<" for binning "<<b1.hexid<<endl;
-                //ceffile<<endl;
-            }
-        } //end for (unsigned j=0; j<nbats; j++) {
-        //destroy the graph and the vector with page ranks
-        igraph_vector_destroy(&eigenvector);
-        igraph_destroy(&g2);
-        //end if (lfpair.valid)
+        igraph_vector_t indegree,res3,res4 /*,degree, indegree*/;  
+	igraph_real_t res1;
+	
+	stringstream assortativity;
+	assortativity<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
+	ofstream assort(assortativity.str().c_str(),ios::trunc);
+	igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",/*ignore self loop=*/true);
+	igraph_vector_init(&indegree,total_bats_in_lf_events);
+	igraph_vector_init(&res3,total_bats_in_lf_events);igraph_vector_init(&res4,total_bats_in_lf_events);
+	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	igraph_betweenness(&g2,&res3,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
+	igraph_vector_add_constant(&indegree, -1);
+	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);	
+	//cout<<"Assortativity "<<res1<<endl;
+	assort<<res1<<endl;
+	
+	/*************************/
+	/*compute the average neighbour connectivity*/
+	assortativity_map original_graph, reshuffled_graph;
+	original_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	original_graph.print_all(&assort);
+	//original_graph.print_average(&assort);	
+	assort.close();
+	/*******************************************/
+	/*rewrire the graph*/
+	//cout<<endl;
+	stringstream assortativity_shuffled;
+	assortativity_shuffled<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<"_shuffled.txt";
+	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);
 
-        cxffile.close();
-        igraph_matrix_destroy(&lf_adjmatrix);
+	igraph_rewire(&g2,10000,IGRAPH_REWIRING_SIMPLE);
+	//igraph_rewire_edges(&g2,1,10000,false);
+        igraph_betweenness(&g2,&res4,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
+	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	igraph_vector_add_constant(&indegree, -1);
+	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);
+	assort_shuffled<<res1<<endl;
+	reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	reshuffled_graph.print_all(&assort_shuffled);
+	assort_shuffled.close();
 
-        /*write the final pagerank (fpr) to a file*/
-        stringstream fpr;
-        fpr<<"output_files_new_2/lead_follow_fpr_"<<Year<<"_"<<knowledge_delay.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
-        ofstream fprfile(fpr.str().c_str(),ios::trunc);
-        if (!fprfile.good()) {
-            perror(fpr.str().c_str());
-            exit(1);
-        }
+	//FILE *output_graph = fopen("rewired_graph.pajek","w");
+	//igraph_write_graph_pajek(&g2,output_graph);
+	//close(output_graph);
+	/*
+        stringstream dis;
+	dis<<"assortativity/"<<"betweenness-centrality.txt";
+	ofstream disassort(dis.str().c_str(),ios::trunc);
+	for (unsigned ll=0; ll<total_bats_in_lf_events; ll++) {
+	  igraph_integer_t v_id=ll;
+	  disassort<<(unsigned) VECTOR(res3)[v_id]<<" "<<(unsigned) VECTOR(res4)[v_id]<<endl;	  
+	}
+	disassort.close();
+	*/
+	/*DESTROY STUFF*/
+        igraph_destroy(&g2);       
+	igraph_vector_destroy(&indegree);
+	igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);
+        
+        igraph_matrix_destroy(&lf_adjmatrix);  
+	
+	/*example for disassortative network*/
+	/*
+	stringstream dis;
+	dis<<"assortativity/"<<"test.txt";
+	ofstream disassort(dis.str().c_str(),ios::trunc);
 
-        for (map<string,unsigned>::iterator j=bats_map.begin(); j!=bats_map.end(); j++) {
-            fprfile<<j->first<<" "<<VECTOR(final_page_rank)[j->second]<<" ";
-            fprfile<<bats_records[j->first].part_of_lf_event<<endl;
-        }
-        igraph_vector_destroy(&final_page_rank);
-        fprfile<<total_valid_pairs<<endl;
-        fprfile.close();
+	igraph_t star;
+	igraph_star(&star, 15, IGRAPH_STAR_UNDIRECTED,0);
+	igraph_vector_t degree;
+	igraph_real_t res2;
+	igraph_vector_init(&degree,15);
+	igraph_degree(&star,&degree,igraph_vss_all(),IGRAPH_ALL,0);
+	igraph_vector_add_constant(&degree, -1);
+	igraph_assortativity(&star,&degree,0,&res2,0);	
+	disassort<<res2<<endl;
+	assortativity_map dismap;
+	dismap.avg_neighbour_connectivity(&degree,&star,15);
+	dismap.print_all(&disassort);
+	disassort.close();
+	igraph_vector_destroy(&degree);
+	igraph_destroy(&star);
+	*/
+	
     }
 
-        if (create_sqlitedb) {
+    if (create_sqlitedb) {
             /* write the box recordings in a database if so configured. see the create_sqlitedb
             flag in the global definitions */
             map<string,Box>::iterator jj;

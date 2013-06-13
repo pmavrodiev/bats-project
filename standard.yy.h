@@ -217,16 +217,20 @@ extern char *yytext;
 #ifdef YY_HEADER_EXPORT_START_CONDITIONS
 #define INITIAL 0
 #define BOX_OCCUPATION 1
-#define COMMENT 2
-#define BATS 3
-#define TRANSPONDERS 4
-#define BOX_PROGRAMMING 5
-#define INSIDE_BOX_PROGRAMMING 6
-#define BATUPDATE 7
-#define LFDELAY 8
-#define OCCUPATIONDEADLINE 9
-#define YEAR 10
-#define EXPORTDATABASE 11
+#define BOX_OCCUPATION_DEADLINE 2
+#define BOX_INSTALLATION 3
+#define BOX_OCCUP_BATS 4
+#define COMMENT 5
+#define BATS 6
+#define TRANSPONDERS 7
+#define BOX_PROGRAMMING 8
+#define INSIDE_BOX_PROGRAMMING 9
+#define INSIDE_BOX_OCCUP_BATS 10
+#define BATUPDATE 11
+#define LFDELAY 12
+#define OCCUPATIONDEADLINE 13
+#define YEAR 14
+#define EXPORTDATABASE 15
 
 #endif
 
@@ -335,9 +339,9 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 428 "scanner.lex"
+#line 494 "scanner.lex"
 
 
-#line 342 "standard.yy.h"
+#line 346 "standard.yy.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */
