@@ -50,9 +50,10 @@ bool Box::lfcomp::operator()(Lf_pair l1, Lf_pair l2) const {
    return (l1.leader->hexid < l2.leader->hexid);    
 }
  
-event::event(string event_name, Bat* whichbat , Box* whichbox, ptime whattime) {
+event::event(string event_name, Bat* whichbat , Box* whichbox, ptime whattime, Bat *leader) {
   eventname = event_name;
   bat = whichbat;
+  aux_bat = leader;
   box = whichbox;
   eventtime = whattime;
   valid = true;
@@ -78,11 +79,16 @@ void event::print(ofstream *out) {
     occupation = 0;
   else {
     occupationtm = to_tm(box->occupiedWhen);
-    occupation = difftime(mktime(&occupationtm),mktime(&installationtm)) / minutes_per_day;
+    occupation = difftime(mktime(&occupationtm),mktime(&installationtm)) / seconds_per_day;
   }  
-  double event_dur = difftime(mktime(&eventtimetm),mktime(&installationtm)) / minutes_per_day;
-  (*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<to_iso_extended_string(eventtime)<<"\t"<<to_iso_extended_string(box->occupiedWhen)<<endl;
-  //(*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<event_dur<<" \t"<<occupation<<endl;
+  double event_dur = difftime(mktime(&eventtimetm),mktime(&installationtm)) / seconds_per_day;
+  //(*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<to_iso_extended_string(eventtime)<<"\t"<<to_iso_extended_string(box->occupiedWhen); 
+  (*out)<<box->name<<"\t"<<eventname<<" \t"<<bat->hexid<<"\t"<<event_dur<<" \t"<<occupation;
+  if (aux_bat != NULL)
+    (*out)<<"\t"<<aux_bat->hexid;
+  else
+    (*out)<<"\t ignore";
+  (*out)<<endl;
   
   
 }
@@ -118,6 +124,18 @@ void Box::print() {
     i->print(&cout);
   }
 }
+
+void Box::print_detailed_occupation() {
+  cout<<name<<endl;
+  for (unsigned i=0; i<occupationHistory.size(); i++) {
+    cout<<to_simple_string(occupationHistory[i].first)<<":"<<endl;
+    for (unsigned j=0; j<occupationHistory[i].second.size();j++) {
+      cout<<occupationHistory[i].second[j]->hexid<<",";
+    }
+    cout<<endl;
+  }      
+}
+
 
 void Box::discovered(string bat_id, ptime when) {
   if (!discoveredBy.second.is_pos_infinity()) {

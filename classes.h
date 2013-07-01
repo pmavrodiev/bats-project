@@ -29,6 +29,47 @@ class Box;
 
 /* ======================== CLASS DEFINITIONS ========================== */
 
+/*just a wrapper for an int to make sure than an int is initialized to 0*/
+class myint {
+public:
+  int i;
+  myint(const myint&other) {
+    this->i = other.i;
+  }
+  myint() {i=0;}
+  myint(int j) {i=j;}
+  myint& operator++() {
+    i++;
+    return *this;
+  }
+  myint& operator++(int) {
+    i++;
+    return *this;
+  }
+  myint& operator+=(const myint &rhs) {
+    i += rhs.i;
+    return *this;
+  }  
+};
+inline bool operator==(const myint& lhs, const myint& rhs){ 
+    return lhs.i < rhs.i;
+}
+inline bool operator!=(const myint& lhs, const myint& rhs){ 
+    return lhs.i != rhs.i;
+}
+inline bool operator<(const myint& lhs, const myint& rhs){ 
+    return lhs.i < rhs.i;
+}
+inline bool operator>(const myint& lhs, const myint& rhs){ 
+    return lhs.i > rhs.i;
+}
+inline bool operator<=(const myint& lhs, const myint& rhs){ 
+    return lhs.i <= rhs.i;
+}
+inline bool operator>=(const myint& lhs, const myint& rhs){ 
+    return lhs.i >= rhs.i;
+}
+
 enum BoxStatus {DISCOVERED, UNDISCOVERED};
 
 class BatEntry {
@@ -132,9 +173,10 @@ public:
   string eventname;//one of DISCOVERY,EXPLORATION,REVISIT,FOLLOW
   Box *box;
   Bat *bat;
+  Bat *aux_bat; //used only if this is an lf event to store a pointer to the LEADER
   ptime eventtime;
   bool valid;
-  event(string, Bat *,Box *, ptime);
+  event(string, Bat *,Box *, ptime, Bat * = NULL);
   event();
   void print(ofstream *);
 };
@@ -166,6 +208,7 @@ public:
     map<Lf_pair, pair<unsigned,LF_FLAG>,lfcomp> lf_events; //bat_id -> <#lf events,status>
     vector<event> revisiting_bats;
     vector<Bat *> occupyingBats; //pointers to the bats that occupied that box
+    vector<pair<ptime, vector<Bat*> > > occupationHistory; //date and bats for all occupation of this box 
     unsigned get_num_occ_bats(); //get the number of occupying bats
     void discovered(string bat_id,ptime when);
     void sort_information_spread();
@@ -192,6 +235,7 @@ public:
     Box(short Type, string Name, ptime occ, ptime installation);
     Box();
     void print();
+    void print_detailed_occupation();
 };
 
 
@@ -243,6 +287,8 @@ public:
 				       //1 - otherwise
     //store the time since a bat became informed of a given box
     map<string,ptime> informed_since;
+    //the first reading of a bat in a given box
+    map<string,ptime> first_reading; 
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
     vector<event> my_revisits;

@@ -674,8 +674,7 @@ int main(int argc, char**argv) {
             perror(file_name);
             exit(1);
         }
-        yylex();
-
+        yylex();	
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();
         /* remove this later (1)*/
@@ -695,7 +694,7 @@ int main(int argc, char**argv) {
         //occupation_deadline=goo.str();
         /*******************/
         /*init the output files*/
-        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13;
+        stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13,ss14,ss15;
 	string outdir="output_files_new_2/"+Year;//"output_files_new_2";
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
@@ -715,7 +714,9 @@ int main(int argc, char**argv) {
 	revisits = ss12.str();
 	ss13<<outdir<<"/info_spread"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<".txt";	
 	info_spread = ss13.str();
-
+	ss14<<outdir<<"/lf_valid_time_diff_viz_"<<Year<<".json";
+	lf_valid_time_diff_viz = ss14.str();
+	ss15<<outdir<<"/time_to_occ_disturbed_"<<Year;
 	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
@@ -891,6 +892,45 @@ int main(int argc, char**argv) {
 	    boxes[box].occupyingBats.push_back(ptr);
 	  }	  
 	}
+	 /*now add detailed box occupation info to each box*/
+	for (map<string,vector<pair<ptime, vector<string> > > >::iterator itr_box = occupation_history.begin(); itr_box != occupation_history.end(); itr_box++) {	 
+	  string box = itr_box->first;
+	  for (unsigned jj=0; jj<itr_box->second.size(); jj++) {
+	    ptime p = itr_box->second[jj].first;
+	    vector<Bat *> occupators;
+	    for (unsigned kk=0; kk < itr_box->second[jj].second.size(); kk++) {
+	      string long_hexid = short_to_long[itr_box->second[jj].second[kk]];
+	      occupators.push_back(&bats_records[long_hexid]);
+	    }
+	    pair<ptime,vector<Bat*> > newpair(p,occupators);	    
+	    boxes[box].occupationHistory.push_back(newpair);
+	  }	  
+	}	 
+	/*******/
+	//for (map<string,Box>::iterator iii=boxes.begin(); iii!=boxes.end(); iii++) {
+	  //iii->second.print_detailed_occupation();
+	//}
+	/*CALCULATE THE FREQUENCY OF BOX OCCUPATION BY A DISTURBED INDIVIDUAL
+	  BASED ON THE TOTAL NUMBER OF OCCUPYING INDIVIDUALS*/
+	map<myint,myint> disturbed_occupation;
+	for (map<string,Box>::iterator iii=boxes.begin(); iii!=boxes.end(); iii++) {	  
+	  if (iii->second.type != 0) { //no control boxes
+	    for (unsigned jjj=0; jjj < iii->second.occupationHistory.size(); jjj++) {
+	      myint ndisturbed(0);
+	      for (unsigned kkk=0; kkk < iii->second.occupationHistory[jjj].second.size(); kkk++) {
+		Bat *bb = iii->second.occupationHistory[jjj].second[kkk];
+		if (bb->disturbed_in_box[iii->first].custom_boolean == TRUE) {
+		  ndisturbed++;
+		  
+		}
+	      }
+	      disturbed_occupation[myint((int)iii->second.occupationHistory[jjj].second.size())]+=ndisturbed;
+	    }	    
+	  }
+ 	}
+ 	for (map<myint,myint>::iterator mitr = disturbed_occupation.begin(); mitr!=disturbed_occupation.end();mitr++) 
+	    cout<<mitr->first.i<<"\t"<<mitr->second.i<<endl;
+	
 	
         //associate mothers to daughters
         for (map<string,unsigned int>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
@@ -976,7 +1016,11 @@ int main(int argc, char**argv) {
 	stringstream ss_test;
 	ss_test<<outdir<<"/test"<<Year;
 	ofstream os_test(ss_test.str().c_str(),ios::out);
-	    
+	if (!os_test.good()) {
+	  perror(ss_test.str().c_str());
+	  exit(1);
+	}
+	
         for (to=multibats.begin(); to != multibats.end(); to++) {
             //find the boundaries of a box         
             //cout<<to->box_name<<endl;
@@ -1004,6 +1048,11 @@ int main(int argc, char**argv) {
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 box_bat_entries[i].print(&os_test);                
                 Bat *B1 = &bats_records[box_bat_entries[i].hexid];
+		/**/
+		 ptime &first_reading = B1->first_reading[bx->name];
+		 if (first_reading.is_not_a_date_time())
+		   first_reading = box_bat_entries[i].TimeOfEntry;
+		/***/
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
 		B1->last_seen = box_bat_entries[i].TimeOfEntry;
 		BatKnowledge &b1_know_ref = B1->box_knowledge[bx->name];		
@@ -1082,8 +1131,8 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
 			//is this passive leading?
-			//if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
-			  //newPair.is_passive_leading = true;			
+			if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
+			  newPair.is_passive_leading = true;			
 			bool insert_success = B1->insert_pair(newPair);			
 			if (insert_success) {			  
 			  LF_FLAG lf;
@@ -1189,7 +1238,7 @@ int main(int argc, char**argv) {
 	    }
 	    //now remove the bats who did not explore but were following
 	    for (unsigned kk=0; kk<tmp.size(); kk++) 
-	      int s = exploration_objects.erase(tmp[kk]);
+	      exploration_objects.erase(tmp[kk]);
 	    //now assign the remaining exploration objects to the map's information_spread container
 	     for (map<string,event>::iterator evnt_itr = exploration_objects.begin(); evnt_itr != exploration_objects.end(); evnt_itr++) 
 	       bx->information_spread.push_back(evnt_itr->second);	     
@@ -1211,12 +1260,13 @@ int main(int argc, char**argv) {
 	    /*now take all lf events and create event objects*/
 	    for (unsigned kk=0; kk<current_box_pairs.size(); kk++) {  
 		Bat *bat =  &bats_records[current_box_pairs[kk].getFollowerId()];
+		Bat *fuehrer = &bats_records[current_box_pairs[kk].getLeaderId()];
 		if (bat->disturbed_in_box[bx->name].custom_boolean == TRUE) {
-		  event leading_following("disturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  event leading_following("disturbed-following",bat,bx,current_box_pairs[kk].tfollower,fuehrer);
 		  bx->information_spread.push_back(leading_following);	     
 		}
 		else {
-		  event leading_following("undisturbed-following",bat,bx,current_box_pairs[kk].tfollower);
+		  event leading_following("undisturbed-following",bat,bx,current_box_pairs[kk].tfollower,fuehrer);
 		  bx->information_spread.push_back(leading_following);	     		  
 		}
 	    }
@@ -1251,7 +1301,15 @@ int main(int argc, char**argv) {
 	cout<<"DONE"<<endl;
 	*/
 	/****/
-	
+	/****/
+	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
+	    Bat *b = & i->second;
+	    cout<<b->hexid<<endl;
+	    for (map<string,ptime>::iterator j=b->first_reading.begin(); j!=b->first_reading.end(); j++) {
+	      cout<<j->first<<"\t"<<to_simple_string(j->second)<<endl;
+	    }
+	}
+	/****/
 	cout<<"Outputting revisit statistics for each box...";
 	ofstream os(revisits.c_str(),ios::out);
 	if (!os.good()) {
@@ -1290,7 +1348,7 @@ int main(int argc, char**argv) {
 	    os<<"NA";
 	  else
 	    os<<box_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0;	  
-	  os<<"\t"<<(box_itr->second.total_lf_events == 0 ? 0.0 : float(n_passive_lf) / float(box_itr->second.total_lf_events));
+	  os<<"\t"<<(box_itr->second.total_lf_events == 0 ? 0.0 : float(n_passive_lf) / float(box_itr->second.total_lf_events))<<"\t"<<float(box_itr->second.total_lf_events);
 	  os<<endl;
 	}
 	os.close();
@@ -1402,6 +1460,31 @@ int main(int argc, char**argv) {
         }
         os.close();
 	cout<<"DONE"<<endl;
+	/*outputting all valid pairs into a form suitable for vizualization*/
+	os.open(lf_valid_time_diff_viz.c_str(),ios::out);
+        if (!os.good()) {
+            perror(lf_valid_time_diff_viz.c_str());
+            exit(1);
+        }
+        cout<<"Outputting all valid lf pairs in a json file for vizualization...";
+        os<<"["<<endl;
+	unsigned tmp = 0;
+	for (map<string,Bat>::iterator b_itr=bats_records.begin(); b_itr!=bats_records.end(); b_itr++) {
+	  os<<"{\"name\":\""<<b_itr->second.hexid.substr(b_itr->second.hexid.size()-4,4)<<"\""<<",\"imports\":[";
+	  for (unsigned k=0; k<b_itr->second.my_lfpairs.size(); k++) {
+	    Lf_pair *lf_ptr = &b_itr->second.my_lfpairs[k];
+	    os<<"\""<<lf_ptr->getFollowerId().substr(lf_ptr->getFollowerId().size()-4,4)<<"\"";
+	    if (k != (b_itr->second.my_lfpairs.size()-1))
+	      os<<",";
+	  }
+	  os<<"]}";
+	  if (++tmp != bats_records.size())
+	    os<<",";
+	  os<<endl;
+	}	
+	os<<"]"<<endl;
+	os.close();
+	cout<<"DONE"<<endl;
 	/*output all valid lf pairs, sorted by time of recording the leader. used as input to plot betweenness preference*/
 	sort(vec_lfpairs.begin(),vec_lfpairs.end(),Lf_pair_compare);
 	os.open(lf_pairs_valid_betweenness_preference.c_str(),ios::out);
@@ -1418,6 +1501,33 @@ int main(int argc, char**argv) {
         }
 	os.close();
 	cout<<"DONE"<<endl;
+	/***********/
+	cout<<"Outputting time to occupation of all bats...";
+	os.open(ss15.str().c_str());
+	if (!os.good()) {
+            perror(ss15.str().c_str());
+            exit(1);
+        }        
+	for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
+	  Box *b = & i->second;
+	  for (unsigned j=0; j < b->occupyingBats.size(); j++) {
+	    double td;
+	    Bat *bb = b->occupyingBats[j];
+	    tm occupying_time = to_tm(b->occupiedWhen);	    
+	    if (!bb->first_reading[b->name].is_not_a_date_time()) {
+	      tm first_reading = to_tm(bb->first_reading[b->name]);	    
+	      //time_duration td = b->occupiedWhen - bb->first_reading[b->name];
+	      td = difftime(mktime(&occupying_time),mktime(&first_reading)) / 60.0; //in minutes
+	    }
+	    else td = -2;
+	    os<<bb->hexid<<"\t"<<td<<"\t"<<bb->disturbed_in_box[i->first].custom_boolean<<"\t"<<b->name<<endl;
+	  }	  
+	}
+	cout<<"DONE"<<endl;
+	os.close();
+	/*************/
+	
+	
 	/*****************************************************/
         /*store the number of leading events that a leader has taken part of,
         regardless the number of following individuals*/

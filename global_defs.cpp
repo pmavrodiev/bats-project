@@ -10,7 +10,9 @@ tm end_exp   = to_tm(ptime(from_iso_string("20080926T000000"))); //26.09.2008
 map<string,ptime> box_occupation;
 map<string,ptime> box_installation;
 map<string,string> box_occupation_deadline;
+map<string,vector<pair<ptime, vector<string> > > > occupation_history;
 map<string,string> monaten; //maps month names to month numbers
+map<string,string> short_to_long; //maps short to long bat hex ids
 /*the year of the analysis*/
 string Year;
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
@@ -508,6 +510,6 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 }
 
 /*output files*/
-string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader;
+string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader,lf_valid_time_diff_viz;
 string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
 /* ==================================================================== */

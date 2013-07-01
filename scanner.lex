@@ -14,6 +14,10 @@ using namespace boost::posix_time;
 using namespace boost::gregorian;
 
 string Tid; string Date; string Time; string HexId; 
+string box_detailed_occupation; 
+ptime detailed_occupation_time;
+vector<string> detailed_box_occupation_bats;
+vector<pair<ptime, vector<string> > > box_detailed_occupation_vector;
 char *pch;
 unsigned int bats_counter = 0;
 
@@ -21,7 +25,7 @@ pair<string,string> entry_pair;
 extern vector < pair<string,string> >  box_entries; 
 extern string Year; //the year of the analysis
 extern map<string,string> monaten; //maps months to their numerical value
-
+extern map<string,string> short_to_long; //maps short to long bat hex ids
 extern map<string,ptime> box_occupation; //maps box names to their dates of occupation
 					 //if a box has not been occupied, this date
 					 //is set to not_a_date_time
@@ -37,6 +41,7 @@ extern map<string,vector<string> > box_occup_bats;
 /*maps box names to box-specific occupation deadline hour*/
 extern map<string,string> box_occupation_deadline;
 
+extern map<string,vector<pair<ptime, vector<string> > > > occupation_history;
 //pair<string,ptime> box_occupation_entry;
 string box_name, box_date,current_programmed_box,current_occup_box,box_installation_name,box_installation_date;
 
@@ -54,6 +59,8 @@ int comment_caller;
 DIGIT [0-9]
 HEXDIGIT [a-fA-F0-9]
 LETTER [a-zA-Z]
+%x BOX_DETAILED_OCCUPATION
+%x INSIDE_DETAILED_BOX_OCCUPATION
 %x BOX_OCCUPATION
 %x BOX_OCCUPATION_DEADLINE
 %x BOX_INSTALLATION
@@ -70,6 +77,7 @@ LETTER [a-zA-Z]
 %x YEAR
 %x EXPORTDATABASE
 %%
+"begin{detailed_box_occupation}"	BEGIN(BOX_DETAILED_OCCUPATION);
 "begin{exportdatabase}"	BEGIN(EXPORTDATABASE);
 "begin{year}"	BEGIN(YEAR);
 "begin{occupation_deadline}"	BEGIN(OCCUPATIONDEADLINE);
@@ -82,6 +90,7 @@ LETTER [a-zA-Z]
 "begin{box_installation}"	BEGIN(BOX_INSTALLATION);
 "begin{box_programming}" {current_programmed_box="";BEGIN(BOX_PROGRAMMING);}
 "begin{box_occup_bats}" {current_occup_box="";BEGIN(BOX_OCCUP_BATS);}
+<*>"end{detailed_box_occupation}" BEGIN(INITIAL);
 <EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
 <YEAR>"end{year}" BEGIN(INITIAL);
 <BATS>"end{bats}" BEGIN(INITIAL);
@@ -107,11 +116,42 @@ LETTER [a-zA-Z]
   }
 }
 
+<BOX_DETAILED_OCCUPATION>{DIGIT}+{LETTER}+ {
+  pch=strtok(yytext,".");
+  current_occup_box = pch;
+  //cout<<"1:"<<current_occup_box<<endl;
+  box_detailed_occupation_vector.clear(); 
+  occupation_history[current_occup_box]=box_detailed_occupation_vector;
+}
+
+<BOX_DETAILED_OCCUPATION>{DIGIT}{4}-{DIGIT}{2}-{DIGIT}{2} {
+  string local_day, local_month, local_year;
+  pch = strtok(yytext,"-");  
+  local_year = pch;
+  pch = strtok(NULL,"-");  
+  local_month = pch;
+  pch = strtok(NULL,"-");  
+  local_day = pch;
+  box_detailed_occupation = local_year+local_month+local_day+"T000000";   
+  //cout<<"2:"<<box_detailed_occupation<<endl;
+  detailed_occupation_time = ptime(from_iso_string(box_detailed_occupation));   
+  BEGIN(INSIDE_DETAILED_BOX_OCCUPATION);
+}
+
+<INSIDE_DETAILED_BOX_OCCUPATION>{HEXDIGIT}{4} {
+  pch = strtok(yytext,".");
+  //cout<<"3:"<<pch<<" ";
+  detailed_box_occupation_bats.push_back(pch);
+}
+
+
 <BOX_OCCUP_BATS>{DIGIT}+{LETTER}+":" {
   pch=strtok(yytext,":");
   current_occup_box = pch;
   BEGIN(INSIDE_BOX_OCCUP_BATS);
 }
+
+
 
 <INSIDE_BOX_OCCUP_BATS>{HEXDIGIT}{10} {
   pch=strtok(yytext,".");
@@ -184,6 +224,8 @@ LETTER [a-zA-Z]
   pch = strtok(yytext,".");
   bat_hexid = pch;
   bats_map[bat_hexid] = bats_counter++;
+  string last4 = bat_hexid.substr(bat_hexid.size()-4,4);  
+  short_to_long[last4] = bat_hexid;
   //bats_vector.push_back(bat_hexid);
 }
  
@@ -486,6 +528,14 @@ BEGIN(COMMENT);
 
 <*>. //{printf("%s",yytext);}/* ignore this token in any start condition*/
 
+<INSIDE_DETAILED_BOX_OCCUPATION>\n|\r|\r\n {
+  pair<ptime,vector<string> > newpair(detailed_occupation_time,detailed_box_occupation_bats);
+  box_detailed_occupation_vector.push_back(newpair);
+  occupation_history[current_occup_box] = box_detailed_occupation_vector;  
+  detailed_box_occupation_bats.clear();
+  //cout<<"4:"<<endl;
+  BEGIN(BOX_DETAILED_OCCUPATION);
+}
 <INSIDE_BOX_PROGRAMMING>\n|\r|\r\n {BEGIN(BOX_PROGRAMMING);}
 <INSIDE_BOX_OCCUP_BATS>\n|\r|\r\n {BEGIN(BOX_OCCUP_BATS);}
 
