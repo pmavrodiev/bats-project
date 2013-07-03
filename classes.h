@@ -19,6 +19,7 @@
 #include <cctype>
 #include <algorithm>
 
+
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
@@ -324,6 +325,23 @@ public:
   int avg_neighbour_connectivity(igraph_vector_t *indegrees,
 			         igraph_t *graph,
 			         unsigned nnodes) ;
+};
+
+
+
+class myigraph {
+public:
+  bool rewired;
+  igraph_t graph;
+  igraph_t rewired_graph;
+  igraph_adjlist_t adjlist;
+  igraph_matrix_t weighted_adj_matrix;
+  myigraph(igraph_matrix_t *adjmatrix);
+  void eigenvector_centrality(igraph_vector_t *result,int which_graph); 
+  void rewire_edges(); 
+  void print_adjacency_matrix(int which_graph);
+  ~myigraph();
+  
 };
 
 #endif

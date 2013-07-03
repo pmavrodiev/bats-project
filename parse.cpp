@@ -1622,7 +1622,7 @@ int main(int argc, char**argv) {
                     leader->cumulative_relatedness += related_itr->second; //found it
                 /*******************************************/
                 /*create an edge*/
-                pair<unsigned,unsigned> edge_pair(bats_map[follower_hexid],bats_map[leader_hexid]);
+                pair<unsigned,unsigned> edge_pair(bat_id2matrix_id[bats_map[follower_hexid]],bat_id2matrix_id[bats_map[leader_hexid]]);
                 if (edges.find(edge_pair) == edges.end()) //edge does not exist
                     edges[edge_pair] = edges_starting_width;
                 else 
@@ -1632,73 +1632,118 @@ int main(int argc, char**argv) {
 		MATRIX(lf_adjmatrix,bat_id2matrix_id[bats_map[follower_hexid]], bat_id2matrix_id[bats_map[leader_hexid]])++;		
             }
         }
-        /****************************************/
-
-        /*create the cxf file*/
-        stringstream cxf;
-        cxf<<outdir<<"/lead_follow_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".cxf";
-        ofstream cxffile(cxf.str().c_str(),ios::trunc);
+        /****************************************/	
+        /*create the graph_ml file*/
+	cout<<"Outputting the lf network ...";        
+        stringstream graphml;
+        graphml<<outdir<<"/graphml_lf_network_"<<Year<<".graphml";
+        ofstream graphmlfile(graphml.str().c_str(),ios::trunc);
+	//add the header
+	graphmlfile<<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"<<endl;
+	graphmlfile<<"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\""<<endl;
+	graphmlfile<<"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""<<endl;
+	graphmlfile<<"xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns"<<endl;
+	graphmlfile<<"http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">"<<endl;
+	graphmlfile<<"<!-- Created by Pavlin Mavrodiev -->"<<endl;	
+	graphmlfile<<"<key id=\"d0\" for=\"node\" attr.name=\"Label\" attr.type=\"string\"/>"<<endl;
+	graphmlfile<<"<key id=\"d1\" for=\"edge\" attr.name=\"importance\" attr.type=\"double\"/>"<<endl;
+	graphmlfile<<"<graph id=\"G\" edgedefault=\"directed\">"<<endl;
 	//add the nodes
 	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
             Bat b = bats_records[i->first];
             if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-	    //add + 1 to the size of the node, because otherwise there can be nodes with size 0, i.e. bats who've never been followed
-            cxffile<<"node: ("<<i->second+1<<") size{"<<b.total_following+1<<"} "<<"label{"<<i->first<<"} color{0.933,0.796,0.678}"<<endl;
+	    graphmlfile<<"<node id = \"n"<<bat_id2matrix_id[i->second]<<"\">"<<endl<<"<data key=\"d0\">"<<endl;
+	    graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>\n</data>\n</node>"<<endl;
         }
         //add the edges
         for (map<pair<unsigned,unsigned>, double>::iterator itr2=edges.begin(); itr2 != edges.end(); itr2++) {
-	  cxffile<<"edge: ("<<itr2->first.first+1<<","<<itr2->first.second+1<<") width{"<<itr2->second<<"} ";
-	  cxffile<<" color{0.54,0.54,0.54}"<<endl;
+	  graphmlfile<<"<edge source=\"n"<<itr2->first.first<<"\" target=\"n"<<itr2->first.second<<"\">"<<endl;
+	  graphmlfile<<"<data key=\"d1\">\n<importance>"<<itr2->second<<"</importance>\n</data>\n</edge>\n";
 	}
-	/***************************/
-	cxffile.close();
+	graphmlfile<<"</graph>\n</graphml>"<<endl;
+	graphmlfile.close();
+	cout<<"DONE"<<endl;
+	/***************************/	
 	
+	myigraph my_graph(&lf_adjmatrix);
+	igraph_vector_t original_centralities;
+	igraph_vector_init(&original_centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	igraph_vector_null(&original_centralities);
+	my_graph.eigenvector_centrality(&original_centralities,/*rewired=*/0);
+	
+	cout<<"Outputting eigenvector centrality ...";      
+        stringstream evectorcentr;
+        evectorcentr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
+        ofstream evectorfile(evectorcentr.str().c_str(),ios::out);
+	//cout<<"EIGENVECTOR CENTRALITY: "<<eigenvalue<<endl;
+	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+            Bat b = bats_records[i->first];
+	    if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	    evectorfile<<i->first<<"\t"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<endl;	    
+        }
+        evectorfile.close();
+	igraph_vector_destroy(&original_centralities);	
+	cout<<"DONE"<<endl; 
+        /***/	
+	/*rewrire the graph 10000 times*/
+	stringstream evectorcentr_shuffled;
+	evectorcentr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<".dat";	
+	ofstream evectorfile_shuffled(evectorcentr_shuffled.str().c_str(),ios::trunc);	    
+	cout<<"Rewiring in progress ... ";
+	for (unsigned kk=0; kk<1000; kk++) {
+	    igraph_vector_t rewired_centralities;
+	    igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	    igraph_vector_null(&rewired_centralities);
+	    my_graph.rewire_edges();
+	    my_graph.eigenvector_centrality(&rewired_centralities,/*rewired=*/1);
+	    //for the 2007 data use igraph_rewire_edges
+	    //igraph_rewire_edges(&shuffled_graph,1,/*loops=*/false,/*multiple=*/true);
+	    /*get the edge attributes*/	 
+	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+		evectorfile_shuffled<<i->first<<"\t"<<VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]<<endl;		
+	    }	    
+	    igraph_vector_destroy(&rewired_centralities);
+	    
+	}
+	evectorfile_shuffled.close();
+	cout<<"DONE"<<endl;
+	/***/
 	/*calculate assortativity*/
-        igraph_t g2;
-        igraph_vector_t indegree,res3,res4 /*,degree, indegree*/;  
-	igraph_real_t res1;
-	
 	stringstream assortativity;
-	assortativity<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
-	ofstream assort(assortativity.str().c_str(),ios::trunc);
-	igraph_weighted_adjacency(&g2,&lf_adjmatrix,IGRAPH_ADJ_DIRECTED,"weight",/*ignore self loop=*/true);
+	assortativity<<"assortativity/"<<Year<<".txt";
+	ofstream assort(assortativity.str().c_str(),ios::trunc);	
+	igraph_vector_t indegree,outdegree;
+	igraph_real_t res1;
 	igraph_vector_init(&indegree,total_bats_in_lf_events);
-	igraph_vector_init(&res3,total_bats_in_lf_events);igraph_vector_init(&res4,total_bats_in_lf_events);
-	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
-	igraph_betweenness(&g2,&res3,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
-	igraph_vector_add_constant(&indegree, -1);
-	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);	
-	//cout<<"Assortativity "<<res1<<endl;
-	assort<<res1<<endl;
-	
-	/*************************/
-	/*compute the average neighbour connectivity*/
-	assortativity_map original_graph, reshuffled_graph;
-	original_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
-	original_graph.print_all(&assort);
-	//original_graph.print_average(&assort);	
+	igraph_vector_init(&outdegree,total_bats_in_lf_events);	
+	igraph_degree(&my_graph.graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	igraph_degree(&my_graph.graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
+	igraph_assortativity(&my_graph.graph,&outdegree,&indegree,&res1,/*directed=*/1);	
+	assort<<res1<<endl;	
 	assort.close();
 	/*******************************************/
-	/*rewrire the graph*/
-	//cout<<endl;
-	stringstream assortativity_shuffled;
-	assortativity_shuffled<<"assortativity/"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<"_shuffled.txt";
-	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);
-
-	igraph_rewire(&g2,10000,IGRAPH_REWIRING_SIMPLE);
-	//igraph_rewire_edges(&g2,1,10000,false);
-        igraph_betweenness(&g2,&res4,igraph_vss_all(),/*directed=*/1,/*weights=*/0,/*no bigint=*/0);
-	igraph_degree(&g2,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
-	igraph_vector_add_constant(&indegree, -1);
-	igraph_assortativity(&g2,&indegree,0,&res1,/*directed=*/1);
-	assort_shuffled<<res1<<endl;
-	reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
-	reshuffled_graph.print_all(&assort_shuffled);
+        stringstream assortativity_shuffled;
+	assortativity_shuffled<<"assortativity/"<<Year<<"_shuffled.txt";
+	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);	
+	for (unsigned tt=0; tt<1000; tt++) {
+	    my_graph.rewire_edges();	    
+	    //for the 2007 data use igraph_rewire_edges
+	    //igraph_rewire_edges(&shuff_graph,1,false,true);
+	    igraph_vector_fill(&indegree,0);
+	    igraph_vector_fill(&outdegree,0);
+	    igraph_degree(&my_graph.rewired_graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	    igraph_degree(&my_graph.rewired_graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
+	    //igraph_vector_add_constant(&indegree, -1);
+	    igraph_assortativity(&my_graph.rewired_graph,&outdegree,&indegree,&res1,/*directed=*/1);
+	    assort_shuffled<<res1<<endl;	    
+	  //reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	}
+	//reshuffled_graph.print_all(&assort_shuffled);
 	assort_shuffled.close();
-
-	//FILE *output_graph = fopen("rewired_graph.pajek","w");
-	//igraph_write_graph_pajek(&g2,output_graph);
-	//close(output_graph);
+	
+	
 	/*
         stringstream dis;
 	dis<<"assortativity/"<<"betweenness-centrality.txt";
@@ -1709,11 +1754,13 @@ int main(int argc, char**argv) {
 	}
 	disassort.close();
 	*/
-	/*DESTROY STUFF*/
-        igraph_destroy(&g2);       
+	
+	
+	
+	/*DESTROY STUFF*/          
 	igraph_vector_destroy(&indegree);
-	igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);
-        
+	igraph_vector_destroy(&outdegree);
+	//igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);        
         igraph_matrix_destroy(&lf_adjmatrix);  
 	
 	/*example for disassortative network*/

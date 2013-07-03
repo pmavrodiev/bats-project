@@ -407,6 +407,7 @@ void Bat::print() {
 
 
 assortativity_map::assortativity_map() {}
+
 void assortativity_map::print_all(ofstream *out) {
     for (map<unsigned, vector<unsigned> >::iterator itr2=m.begin(); itr2 != m.end(); itr2++) {	  
       (*out)<<itr2->first<<" ";
@@ -428,7 +429,7 @@ void assortativity_map::print_average(ofstream *out) {
 int assortativity_map::avg_neighbour_connectivity(igraph_vector_t *indegrees,
 			         igraph_t *graph,
 			         unsigned nnodes) {
-  igraph_vector_add_constant(indegrees,1); //add the constant back 
+  //igraph_vector_add_constant(indegrees,1); //add the constant back 
   for (unsigned i=0; i<nnodes; i++) {
     igraph_integer_t v_id = i;
     unsigned v_indegree = (unsigned) VECTOR(*indegrees)[v_id];
@@ -449,14 +450,121 @@ int assortativity_map::avg_neighbour_connectivity(igraph_vector_t *indegrees,
 }  
 
 
+myigraph::myigraph(igraph_matrix_t* adjmatrix) {
+    long nrow = igraph_matrix_nrow(adjmatrix);
+    long ncol = igraph_matrix_ncol(adjmatrix);
+    igraph_matrix_init(&weighted_adj_matrix,nrow,ncol);
+    igraph_matrix_null(&weighted_adj_matrix);
+    igraph_matrix_copy(&weighted_adj_matrix,adjmatrix);
+    /*create adjacency list from weighted_adj_matrix*/
+    igraph_adjlist_init_empty(&adjlist,nrow);
+    for (long vid=0; vid < nrow; vid++) {
+      //the neighbours of vid from the adjacency list
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
+      //igraph_vector_init(vid_ptr);
+      //the neighbours of vid from weighted_adj_matrix
+      igraph_vector_t vid_ptr_adj_matrix;
+      igraph_vector_init(&vid_ptr_adj_matrix,nrow);
+      igraph_vector_null(&vid_ptr_adj_matrix);      
+      igraph_matrix_get_row(&weighted_adj_matrix,&vid_ptr_adj_matrix,vid);
+      igraph_real_t vid_n_outgoing_edges = igraph_vector_sum(&vid_ptr_adj_matrix);
+      //resize the vector for vid in the adjacency list
+      igraph_vector_resize(vid_ptr,vid_n_outgoing_edges);
+      //fill the vector for vid in the adjacency list
+      unsigned counter = 0;
+      for (long vid_neighbour=0; vid_neighbour<igraph_vector_size(&vid_ptr_adj_matrix); vid_neighbour++)
+	  for (long j=0; j<VECTOR(vid_ptr_adj_matrix)[vid_neighbour]; j++) 
+	      VECTOR(*vid_ptr)[counter++] = vid_neighbour;
+	  
+      igraph_vector_destroy(&vid_ptr_adj_matrix);
+    }
+    //finally create the graph
+    igraph_adjlist(&graph,&adjlist,IGRAPH_OUT,false);
+    rewired=false;    
+}
 
+void myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
+    //which_graph: 0 for original graph, 1 for the rewired
+    /*the idea is to create a new temporary graph from the adjacency matrix of this.graph,
+     and calculate the eigenvector centralities from there*/
+    //get the adjacency matrix
+    igraph_matrix_t m;
+    igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+    igraph_matrix_null(&m);
+    igraph_get_adjacency((which_graph==0 ? &graph : &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+    igraph_t temp_g;
+    igraph_weighted_adjacency(&temp_g,&m,IGRAPH_ADJ_DIRECTED,"importance",true);
+    /*get the edge attributes*/
+    igraph_real_t eigenvalue;
+    igraph_vector_t edge_importance;
+    igraph_es_t edge_selector;
+    igraph_eit_t edge_iterator;    
+    igraph_es_all(&edge_selector,IGRAPH_EDGEORDER_ID);
+    igraph_eit_create(&temp_g,edge_selector,&edge_iterator);    
+    igraph_vector_init(&edge_importance,IGRAPH_EIT_SIZE(edge_iterator));
+    igraph_vector_null(&edge_importance);
+    igraph_eit_destroy(&edge_iterator);
+    igraph_cattribute_EANV(&temp_g,"importance",edge_selector,&edge_importance);
+    igraph_es_destroy(&edge_selector);
+    /**/
+    igraph_arpack_options_t aroptions;
+    igraph_arpack_options_init(&aroptions);
+    igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);
+    /**/
+    igraph_vector_destroy(&edge_importance);
+    igraph_matrix_destroy(&m);
+    igraph_destroy(&temp_g);
+}
 
+void myigraph::rewire_edges() {
+   //init the random number generators
+   igraph_rng_t rng;
+   //igraph_rngtype_mt19937 rng_type;
+   igraph_rng_init(&rng,&igraph_rngtype_mt19937);
+   igraph_rng_seed(&rng,time(0)*1000); //current time in milliseconds
+   /**/
+   long n_vs = igraph_adjlist_size(&adjlist);
+   for (long vid=0; vid<n_vs; vid++) {
+    //the neighbours of vid from the adjacency list
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
+      for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
+	long random_number = vid;
+	while (random_number == vid)
+	  random_number=igraph_rng_get_integer(&rng,0,n_vs-1);	
+	VECTOR(*vid_ptr)[neighbours] = random_number;
+      }
+   }
+   /*now init the rewired graph*/   
+   igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
+   rewired=true;
+   igraph_rng_destroy(&rng);
 
+}
 
+void myigraph::print_adjacency_matrix(int which_graph) {
+    //0 for original graph, 1 for the rewired
+    igraph_matrix_t m;
+    igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+    igraph_matrix_null(&m);
+    igraph_get_adjacency((which_graph==0 ? &graph: &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+    for (long r=0; r<igraph_matrix_nrow(&m); r++) {
+      for (long c=0; c<igraph_matrix_ncol(&m); c++) {
+	cout<<MATRIX(m,r,c)<<"\t";      
+      }
+      cout<<endl;   
+    }
+    igraph_matrix_destroy(&m);
 
+}
 
-
-
+myigraph::~myigraph() {  
+    igraph_destroy(&graph);    
+    if (rewired)
+      igraph_destroy(&rewired_graph);
+    igraph_adjlist_destroy(&adjlist);
+    igraph_matrix_destroy(&weighted_adj_matrix);    
+  
+}
 
 
 /* ==================================================================== */
