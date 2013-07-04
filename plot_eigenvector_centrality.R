@@ -36,12 +36,15 @@ yplus = apply(eigenvector.shuffled.matrix.sorted.cleaned,1,
 
 ymedian = apply(eigenvector.shuffled.matrix.sorted.cleaned,1
                 ,median)
-
-plot(X,eigenvector.original,type="o",ylim=c(0,0.8))
+CairoPDF(file="lf-network-comparison.pdf",width=12,height=10)
+plot(X,eigenvector.original,type="o",ylim=c(0,0.8),lwd=3,cex=2,
+     pch=4,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
+     cex.lab=2)
 polygon(x=c(X,rev(X)),
         y=c(yminus,rev(yplus)),
-        col=rgb(0/255,0/255,0/255,alpha=0.3,maxColorValue=1),border=NA)
-lines(X,ymedian,type="o",col="blue")
+        col=rgb(0/255,0/255,255/255,alpha=0.3,maxColorValue=1),border=NA)
+lines(X,ymedian,type="o",col="blue",lwd=3,cex=2,pch=4)
+dev.off()
 
 #now assortativity
 setwd("/home/pmavrodiev/Documents/bats/result_files/assortativity")

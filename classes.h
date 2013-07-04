@@ -337,7 +337,7 @@ public:
   igraph_adjlist_t adjlist;
   igraph_matrix_t weighted_adj_matrix;
   myigraph(igraph_matrix_t *adjmatrix);
-  void eigenvector_centrality(igraph_vector_t *result,int which_graph); 
+  int eigenvector_centrality(igraph_vector_t *result,int which_graph); 
   void rewire_edges(); 
   void print_adjacency_matrix(int which_graph);
   ~myigraph();

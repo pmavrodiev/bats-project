@@ -1633,7 +1633,28 @@ int main(int argc, char**argv) {
             }
         }
         /****************************************/	
-        /*create the graph_ml file*/
+	myigraph my_graph(&lf_adjmatrix);
+	igraph_vector_t original_centralities;
+	igraph_vector_init(&original_centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	igraph_vector_null(&original_centralities);
+	my_graph.eigenvector_centrality(&original_centralities,/*rewired=*/0);
+	
+	cout<<"Outputting eigenvector centrality ...";      
+	
+        stringstream evectorcentr;
+        evectorcentr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
+        ofstream evectorfile(evectorcentr.str().c_str(),ios::out);
+	//cout<<"EIGENVECTOR CENTRALITY: "<<eigenvalue<<endl;
+	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+            Bat b = bats_records[i->first];
+	    if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	    evectorfile<<i->first<<"\t"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<endl;	    
+        }
+        evectorfile.close();
+	
+	cout<<"DONE"<<endl; 
+	/***/	
+	/*create the graph_ml file*/
 	cout<<"Outputting the lf network ...";        
         stringstream graphml;
         graphml<<outdir<<"/graphml_lf_network_"<<Year<<".graphml";
@@ -1646,6 +1667,7 @@ int main(int argc, char**argv) {
 	graphmlfile<<"http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">"<<endl;
 	graphmlfile<<"<!-- Created by Pavlin Mavrodiev -->"<<endl;	
 	graphmlfile<<"<key id=\"d0\" for=\"node\" attr.name=\"Label\" attr.type=\"string\"/>"<<endl;
+	graphmlfile<<"<key id=\"d2\" for=\"node\" attr.name=\"ev_centrality\" attr.type=\"double\"/>"<<endl;
 	graphmlfile<<"<key id=\"d1\" for=\"edge\" attr.name=\"importance\" attr.type=\"double\"/>"<<endl;
 	graphmlfile<<"<graph id=\"G\" edgedefault=\"directed\">"<<endl;
 	//add the nodes
@@ -1653,7 +1675,11 @@ int main(int argc, char**argv) {
             Bat b = bats_records[i->first];
             if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
 	    graphmlfile<<"<node id = \"n"<<bat_id2matrix_id[i->second]<<"\">"<<endl<<"<data key=\"d0\">"<<endl;
-	    graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>\n</data>\n</node>"<<endl;
+	    graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>"<<endl;
+	    graphmlfile<<"</data>"<<endl;
+	    graphmlfile<<"<data key=\"d2\">"<<endl;	    
+	    graphmlfile<<"<ev_centrality>"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<"</ev_centrality>"<<endl;	    
+	    graphmlfile<<"</data>\n</node>"<<endl;
         }
         //add the edges
         for (map<pair<unsigned,unsigned>, double>::iterator itr2=edges.begin(); itr2 != edges.end(); itr2++) {
@@ -1662,42 +1688,22 @@ int main(int argc, char**argv) {
 	}
 	graphmlfile<<"</graph>\n</graphml>"<<endl;
 	graphmlfile.close();
+	igraph_vector_destroy(&original_centralities);	
 	cout<<"DONE"<<endl;
 	/***************************/	
-	
-	myigraph my_graph(&lf_adjmatrix);
-	igraph_vector_t original_centralities;
-	igraph_vector_init(&original_centralities,igraph_matrix_nrow(&lf_adjmatrix));
-	igraph_vector_null(&original_centralities);
-	my_graph.eigenvector_centrality(&original_centralities,/*rewired=*/0);
-	
-	cout<<"Outputting eigenvector centrality ...";      
-        stringstream evectorcentr;
-        evectorcentr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
-        ofstream evectorfile(evectorcentr.str().c_str(),ios::out);
-	//cout<<"EIGENVECTOR CENTRALITY: "<<eigenvalue<<endl;
-	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-            Bat b = bats_records[i->first];
-	    if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-	    evectorfile<<i->first<<"\t"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<endl;	    
-        }
-        evectorfile.close();
-	igraph_vector_destroy(&original_centralities);	
-	cout<<"DONE"<<endl; 
-        /***/	
-	/*rewrire the graph 10000 times*/
+        /*rewrire the graph 10000 times*/
 	stringstream evectorcentr_shuffled;
 	evectorcentr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<".dat";	
 	ofstream evectorfile_shuffled(evectorcentr_shuffled.str().c_str(),ios::trunc);	    
 	cout<<"Rewiring in progress ... ";
-	for (unsigned kk=0; kk<1000; kk++) {
+	for (unsigned kk=0; kk<10000; kk++) {
 	    igraph_vector_t rewired_centralities;
 	    igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
 	    igraph_vector_null(&rewired_centralities);
 	    my_graph.rewire_edges();
-	    my_graph.eigenvector_centrality(&rewired_centralities,/*rewired=*/1);
-	    //for the 2007 data use igraph_rewire_edges
-	    //igraph_rewire_edges(&shuffled_graph,1,/*loops=*/false,/*multiple=*/true);
+	    while (my_graph.eigenvector_centrality(&rewired_centralities,/*rewired=*/1)) 
+	      my_graph.rewire_edges();    	      
+	   
 	    /*get the edge attributes*/	 
 	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
 		Bat b = bats_records[i->first];

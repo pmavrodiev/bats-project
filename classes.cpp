@@ -20,6 +20,8 @@ extern tm start_exp;
 extern tm end_exp;
 /* ======================== CLASS DEFINITIONS ========================== */
 
+
+
 BatEntry::BatEntry(string entry_time, string hex, string name) {
         TimeOfEntry = ptime(from_iso_string(entry_time));
         hexid = hex;
@@ -483,7 +485,7 @@ myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     rewired=false;    
 }
 
-void myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
+int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     //which_graph: 0 for original graph, 1 for the rewired
     /*the idea is to create a new temporary graph from the adjacency matrix of this.graph,
      and calculate the eigenvector centralities from there*/
@@ -508,12 +510,16 @@ void myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) 
     igraph_es_destroy(&edge_selector);
     /**/
     igraph_arpack_options_t aroptions;
-    igraph_arpack_options_init(&aroptions);
-    igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);
+    igraph_arpack_options_init(&aroptions);	      
+    /*set up a new error handler which doesnt automatically quit on errors*/
+    //igraph_error_type_t new_handler;
+    igraph_error_handler_t *old_handler = igraph_set_error_handler(&igraph_error_handler_printignore);    
+    int errcode = igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);    
     /**/
     igraph_vector_destroy(&edge_importance);
     igraph_matrix_destroy(&m);
     igraph_destroy(&temp_g);
+    return errcode;
 }
 
 void myigraph::rewire_edges() {
@@ -535,6 +541,9 @@ void myigraph::rewire_edges() {
       }
    }
    /*now init the rewired graph*/   
+   if (rewired)
+     igraph_destroy(&rewired_graph);
+   
    igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
    rewired=true;
    igraph_rng_destroy(&rng);
