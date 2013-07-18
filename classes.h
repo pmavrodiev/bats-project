@@ -272,7 +272,6 @@ private:
         }
     };
 public:
-    
     bool part_of_lf_event; //has this bat taken part in an lf-event? either as a leader
     //or as a follower
     //the cumulative relatedness between all individuals following this bat over time
@@ -283,6 +282,8 @@ public:
     double total_following;
     string hexid;
     set<pair<ptime, Box*>,movementCompare> movement_history;//time of recording at each box
+    //"clean" movement_history by ensuring that no two consequtive events are less than 10 minutes apart
+    vector<pair<ptime, Box*> > cleaned_movement_history;
     map<string,BatKnowledge> box_knowledge;//box_name -> knowledge. what bats know about each box
     map<string,mybool> disturbed_in_box; //box_name->0/1. 0 if bat has not been disturbed in that box
 				       //1 - otherwise
@@ -311,6 +312,8 @@ public:
     inline bool operator==(const Bat &other) {
         return (this->hexid == other.hexid);
     }
+    void clean_movement_history();
+    
 };
 
 
@@ -338,8 +341,12 @@ public:
   igraph_matrix_t weighted_adj_matrix;
   myigraph(igraph_matrix_t *adjmatrix);
   int eigenvector_centrality(igraph_vector_t *result,int which_graph); 
-  void rewire_edges(); 
-  void print_adjacency_matrix(int which_graph);
+  void rewire_edges(unsigned long seed);
+  void rewire_edges2(vector<double> probs,unsigned long seed);
+  void rewire_edges3(unsigned long seed);
+  void rewire_edges4(vector<double> probs,unsigned long seed);
+  void print_adjacency_matrix(int which_graph, ostream *out);
+  long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
   ~myigraph();
   
 };

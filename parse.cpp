@@ -851,6 +851,12 @@ int main(int argc, char**argv) {
             Box *box_ptr = &boxes[current.box_name];
             ref.add_movement(current.TimeOfEntry,box_ptr);
         }
+        /*clean the movement history for each bat*/
+	int total_readings = 0;
+	for (map<string,Bat>::iterator jj=bats_records.begin(); jj!=bats_records.end();jj++) { 
+	  jj->second.clean_movement_history();	  
+	  total_readings += jj->second.cleaned_movement_history.size();
+	}
         /**********************************************************/
 	/*after all bat objects have been created update them with box programming information*/
 	for (map<string,vector<string> >::iterator itr_box_prog = box_programming.begin(); itr_box_prog != box_programming.end(); itr_box_prog++) {	 
@@ -1019,8 +1025,7 @@ int main(int argc, char**argv) {
 	if (!os_test.good()) {
 	  perror(ss_test.str().c_str());
 	  exit(1);
-	}
-	
+	}	
         for (to=multibats.begin(); to != multibats.end(); to++) {
             //find the boundaries of a box         
             //cout<<to->box_name<<endl;
@@ -1047,8 +1052,7 @@ int main(int argc, char**argv) {
 	    //int counter2 = 0;	   
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 box_bat_entries[i].print(&os_test);                
-                Bat *B1 = &bats_records[box_bat_entries[i].hexid];
-		/**/
+                Bat *B1 = &bats_records[box_bat_entries[i].hexid];				
 		 ptime &first_reading = B1->first_reading[bx->name];
 		 if (first_reading.is_not_a_date_time())
 		   first_reading = box_bat_entries[i].TimeOfEntry;
@@ -1126,6 +1130,7 @@ int main(int argc, char**argv) {
 			mybool &bool_ref = B1->disturbed_in_box[bx->name];
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
 			  cerr<<"Error: Something went wrong with reading the box programming information"<<endl;
+			  cerr<<"Additional info: box "<<bx->name<<" bat: "<<B1->hexid<<endl;
 			  exit(1);
 			}
 			if (bool_ref.custom_boolean)
@@ -1167,7 +1172,7 @@ int main(int argc, char**argv) {
 			if (bool_ref.custom_boolean == UNINITIALIZED) {
 			  cerr<<"Error: Something went wrong with reading the box programming information!"<<endl;
 			  cerr<<"Additional info: box "<<bx->name<<" bat: "<<B2->hexid<<endl;
-			  //exit(1);
+			  exit(1);
 			}
 			if (bool_ref.custom_boolean)
 			  newPair.leader_disturbed = true;
@@ -1300,8 +1305,20 @@ int main(int argc, char**argv) {
 	os.close();
 	cout<<"DONE"<<endl;
 	*/
+	
 	/****/
+	cout<<"Total readings:\t"<<total_readings<<endl;
+	/*normalize each bats' activity'*/
+	
+	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
+	    Bat *b = & i->second;
+      	      cout<<b->hexid<<"\t"<<b->cleaned_movement_history.size()<<"\t"<<b->movement_history.size()<<"\t";
+	      double percentage = (double)b->cleaned_movement_history.size() / (double)total_readings;	    
+	      printf("%.15g\n", percentage);   
+	}
+        
 	/****/
+	/*
 	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
 	    Bat *b = & i->second;
 	    cout<<b->hexid<<endl;
@@ -1309,6 +1326,7 @@ int main(int argc, char**argv) {
 	      cout<<j->first<<"\t"<<to_simple_string(j->second)<<endl;
 	    }
 	}
+	*/
 	/****/
 	cout<<"Outputting revisit statistics for each box...";
 	ofstream os(revisits.c_str(),ios::out);
@@ -1638,134 +1656,170 @@ int main(int argc, char**argv) {
 	igraph_vector_init(&original_centralities,igraph_matrix_nrow(&lf_adjmatrix));
 	igraph_vector_null(&original_centralities);
 	my_graph.eigenvector_centrality(&original_centralities,/*rewired=*/0);
+	bool output_eigen=true;
 	
-	cout<<"Outputting eigenvector centrality ...";      
+	if (output_eigen) {
+	  vector<double> probs(total_bats_in_lf_events,0);
+	  cout<<"Outputting eigenvector centrality ...";      
 	
-        stringstream evectorcentr;
-        evectorcentr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
-        ofstream evectorfile(evectorcentr.str().c_str(),ios::out);
-	//cout<<"EIGENVECTOR CENTRALITY: "<<eigenvalue<<endl;
-	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-            Bat b = bats_records[i->first];
-	    if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-	    evectorfile<<i->first<<"\t"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<endl;	    
-        }
-        evectorfile.close();
-	
-	cout<<"DONE"<<endl; 
-	/***/	
-	/*create the graph_ml file*/
-	cout<<"Outputting the lf network ...";        
-        stringstream graphml;
-        graphml<<outdir<<"/graphml_lf_network_"<<Year<<".graphml";
-        ofstream graphmlfile(graphml.str().c_str(),ios::trunc);
-	//add the header
-	graphmlfile<<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"<<endl;
-	graphmlfile<<"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\""<<endl;
-	graphmlfile<<"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""<<endl;
-	graphmlfile<<"xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns"<<endl;
-	graphmlfile<<"http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">"<<endl;
-	graphmlfile<<"<!-- Created by Pavlin Mavrodiev -->"<<endl;	
-	graphmlfile<<"<key id=\"d0\" for=\"node\" attr.name=\"Label\" attr.type=\"string\"/>"<<endl;
-	graphmlfile<<"<key id=\"d2\" for=\"node\" attr.name=\"ev_centrality\" attr.type=\"double\"/>"<<endl;
-	graphmlfile<<"<key id=\"d1\" for=\"edge\" attr.name=\"importance\" attr.type=\"double\"/>"<<endl;
-	graphmlfile<<"<graph id=\"G\" edgedefault=\"directed\">"<<endl;
-	//add the nodes
-	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-            Bat b = bats_records[i->first];
-            if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-	    graphmlfile<<"<node id = \"n"<<bat_id2matrix_id[i->second]<<"\">"<<endl<<"<data key=\"d0\">"<<endl;
-	    graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>"<<endl;
-	    graphmlfile<<"</data>"<<endl;
-	    graphmlfile<<"<data key=\"d2\">"<<endl;	    
-	    graphmlfile<<"<ev_centrality>"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<"</ev_centrality>"<<endl;	    
-	    graphmlfile<<"</data>\n</node>"<<endl;
-        }
-        //add the edges
-        for (map<pair<unsigned,unsigned>, double>::iterator itr2=edges.begin(); itr2 != edges.end(); itr2++) {
-	  graphmlfile<<"<edge source=\"n"<<itr2->first.first<<"\" target=\"n"<<itr2->first.second<<"\">"<<endl;
-	  graphmlfile<<"<data key=\"d1\">\n<importance>"<<itr2->second<<"</importance>\n</data>\n</edge>\n";
-	}
-	graphmlfile<<"</graph>\n</graphml>"<<endl;
-	graphmlfile.close();
-	igraph_vector_destroy(&original_centralities);	
-	cout<<"DONE"<<endl;
-	/***************************/	
-        /*rewrire the graph 10000 times*/
-	stringstream evectorcentr_shuffled;
-	evectorcentr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<".dat";	
-	ofstream evectorfile_shuffled(evectorcentr_shuffled.str().c_str(),ios::trunc);	    
-	cout<<"Rewiring in progress ... ";
-	for (unsigned kk=0; kk<10000; kk++) {
-	    igraph_vector_t rewired_centralities;
-	    igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
-	    igraph_vector_null(&rewired_centralities);
-	    my_graph.rewire_edges();
-	    while (my_graph.eigenvector_centrality(&rewired_centralities,/*rewired=*/1)) 
-	      my_graph.rewire_edges();    	      
-	   
-	    /*get the edge attributes*/	 
+	  stringstream evectorcentr;
+	  evectorcentr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
+	  ofstream evectorfile;
+	  //evectorfile.open(evectorcentr.str().c_str(),ios::out);
+	  //cout<<"EIGENVECTOR CENTRALITY: "<<eigenvalue<<endl;
+	  for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      //evectorfile<<i->first<<"\t"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<endl;	    
+	  }
+	  //evectorfile.close();
+	  cout<<"DONE"<<endl; 
+	  /*********/
+	  cout<<"Writing graph to file ...";
+	  stringstream graph_outputfile;
+	  graph_outputfile<<outdir<<"/graph_"<<Year<<".csv";
+	  evectorfile.open(graph_outputfile.str().c_str(),ios::out);
+	  my_graph.print_adjacency_matrix(0,&evectorfile);
+	  evectorfile.close();
+	  evectorfile.open(graph_outputfile.str().c_str(),ios::app);
+	  evectorfile<<endl<<endl;
+	  for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      evectorfile<<i->first<<";"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<";"<<bat_id2matrix_id[i->second]<<endl;	    
+              probs[bat_id2matrix_id[i->second]] = (double)b.cleaned_movement_history.size() / (double)total_readings;
+	  }
+	  evectorfile.close();
+	  cout<<"DONE"<<endl; 
+	  /***/	
+	  /*create the graph_ml file*/
+	  cout<<"Outputting the lf network ...";        
+	  stringstream graphml;
+	  graphml<<outdir<<"/graphml_lf_network_"<<Year<<".graphml";
+	  ofstream graphmlfile(graphml.str().c_str(),ios::trunc);
+	  //add the header
+	  graphmlfile<<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"<<endl;
+	  graphmlfile<<"<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\""<<endl;
+	  graphmlfile<<"xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""<<endl;
+	  graphmlfile<<"xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns"<<endl;
+	  graphmlfile<<"http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">"<<endl;
+	  graphmlfile<<"<!-- Created by Pavlin Mavrodiev -->"<<endl;	
+	  graphmlfile<<"<key id=\"d0\" for=\"node\" attr.name=\"Label\" attr.type=\"string\"/>"<<endl;
+	  graphmlfile<<"<key id=\"d2\" for=\"node\" attr.name=\"ev_centrality\" attr.type=\"double\"/>"<<endl;
+	  graphmlfile<<"<key id=\"d1\" for=\"edge\" attr.name=\"importance\" attr.type=\"double\"/>"<<endl;
+	  graphmlfile<<"<graph id=\"G\" edgedefault=\"directed\">"<<endl;
+	  //add the nodes
+	  for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      graphmlfile<<"<node id = \"n"<<bat_id2matrix_id[i->second]<<"\">"<<endl<<"<data key=\"d0\">"<<endl;
+	      graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>"<<endl;
+	      graphmlfile<<"</data>"<<endl;
+	      graphmlfile<<"<data key=\"d2\">"<<endl;	    
+	      graphmlfile<<"<ev_centrality>"<<VECTOR(original_centralities)[bat_id2matrix_id[i->second]]<<"</ev_centrality>"<<endl;	    
+	      graphmlfile<<"</data>\n</node>"<<endl;
+	  }
+	  //add the edges
+	  for (map<pair<unsigned,unsigned>, double>::iterator itr2=edges.begin(); itr2 != edges.end(); itr2++) {
+	    graphmlfile<<"<edge source=\"n"<<itr2->first.first<<"\" target=\"n"<<itr2->first.second<<"\">"<<endl;
+	    graphmlfile<<"<data key=\"d1\">\n<importance>"<<itr2->second<<"</importance>\n</data>\n</edge>\n";
+	  }
+	  graphmlfile<<"</graph>\n</graphml>"<<endl;
+	  graphmlfile.close();
+	  igraph_vector_destroy(&original_centralities);	
+	  cout<<"DONE"<<endl;
+	  /***************************/	
+	  /*rewrire the graph 10000 times*/
+	  
+	  stringstream evectorcentr_shuffled;
+	  evectorcentr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<".dat";	
+	  ofstream evectorfile_shuffled(evectorcentr_shuffled.str().c_str(),ios::trunc);	    
+	  cout<<"Rewiring in progress ... ";
+	  /**/
 	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		Bat b = bats_records[i->first];
-		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-		evectorfile_shuffled<<i->first<<"\t"<<VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]<<endl;		
-	    }	    
-	    igraph_vector_destroy(&rewired_centralities);
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    	      
+	      cout<<b.hexid<<"\t"<<probs[bat_id2matrix_id[i->second]]<<endl;
+	    }
+	  /**/
+	  srand (time(NULL));
+	  for (unsigned kk=0; kk<10000; kk++) {	      
+	      igraph_vector_t rewired_centralities;
+	      igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	      igraph_vector_null(&rewired_centralities);
+	      my_graph.rewire_edges2(probs,rand());
+	      //my_graph.rewire_edges4(probs,rand());
+	      //my_graph.rewire_edges3(rand());
+	      //my_graph.rewire_edges(rand());
+	      while (my_graph.eigenvector_centrality(&rewired_centralities,1)) 
+		 //my_graph.rewire_edges(rand());
+		 //my_graph.rewire_edges3(rand());
+		 //my_graph.rewire_edges4(probs,rand());
+		 my_graph.rewire_edges2(probs,rand());
 	    
-	}
-	evectorfile_shuffled.close();
-	cout<<"DONE"<<endl;
-	/***/
-	/*calculate assortativity*/
-	stringstream assortativity;
-	assortativity<<"assortativity/"<<Year<<".txt";
-	ofstream assort(assortativity.str().c_str(),ios::trunc);	
-	igraph_vector_t indegree,outdegree;
-	igraph_real_t res1;
-	igraph_vector_init(&indegree,total_bats_in_lf_events);
-	igraph_vector_init(&outdegree,total_bats_in_lf_events);	
-	igraph_degree(&my_graph.graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
-	igraph_degree(&my_graph.graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
-	igraph_assortativity(&my_graph.graph,&outdegree,&indegree,&res1,/*directed=*/1);	
-	assort<<res1<<endl;	
-	assort.close();
-	/*******************************************/
-        stringstream assortativity_shuffled;
-	assortativity_shuffled<<"assortativity/"<<Year<<"_shuffled.txt";
-	ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);	
-	for (unsigned tt=0; tt<1000; tt++) {
-	    my_graph.rewire_edges();	    
-	    //for the 2007 data use igraph_rewire_edges
-	    //igraph_rewire_edges(&shuff_graph,1,false,true);
-	    igraph_vector_fill(&indegree,0);
-	    igraph_vector_fill(&outdegree,0);
-	    igraph_degree(&my_graph.rewired_graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
-	    igraph_degree(&my_graph.rewired_graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
-	    //igraph_vector_add_constant(&indegree, -1);
-	    igraph_assortativity(&my_graph.rewired_graph,&outdegree,&indegree,&res1,/*directed=*/1);
-	    assort_shuffled<<res1<<endl;	    
-	  //reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
-	}
-	//reshuffled_graph.print_all(&assort_shuffled);
-	assort_shuffled.close();
-	
-	
-	/*
-        stringstream dis;
-	dis<<"assortativity/"<<"betweenness-centrality.txt";
-	ofstream disassort(dis.str().c_str(),ios::trunc);
-	for (unsigned ll=0; ll<total_bats_in_lf_events; ll++) {
-	  igraph_integer_t v_id=ll;
-	  disassort<<(unsigned) VECTOR(res3)[v_id]<<" "<<(unsigned) VECTOR(res4)[v_id]<<endl;	  
-	}
-	disassort.close();
-	*/
-	
-	
-	
+	      //get the edge attributes
+	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		  Bat b = bats_records[i->first];
+		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+		  evectorfile_shuffled<<i->first<<"\t"<<VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]<<endl;		
+	      }	    
+	      igraph_vector_destroy(&rewired_centralities);
+	      
+	  }
+	  evectorfile_shuffled.close();
+	  
+	  cout<<"DONE"<<endl;
+	  /***/
+	  /*calculate assortativity*/
+	  stringstream assortativity;
+	  assortativity<<"assortativity/"<<Year<<".txt";
+	  ofstream assort(assortativity.str().c_str(),ios::trunc);	
+	  igraph_vector_t indegree,outdegree;
+	  igraph_real_t res1;
+	  igraph_vector_init(&indegree,total_bats_in_lf_events);
+	  igraph_vector_init(&outdegree,total_bats_in_lf_events);	
+	  igraph_degree(&my_graph.graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	  igraph_degree(&my_graph.graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
+	  igraph_assortativity(&my_graph.graph,&outdegree,&indegree,&res1,/*directed=*/1);	
+	  assort<<res1<<endl;	
+	  assort.close();
+	  /*******************************************/
+	  stringstream assortativity_shuffled;
+	  assortativity_shuffled<<"assortativity/"<<Year<<"_shuffled.txt";
+	  ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);	
+	  for (unsigned tt=0; tt<1000; tt++) {
+	      my_graph.rewire_edges3(rand());	    
+	      //for the 2007 data use igraph_rewire_edges
+	      //igraph_rewire_edges(&shuff_graph,1,false,true);
+	      igraph_vector_fill(&indegree,0);
+	      igraph_vector_fill(&outdegree,0);
+	      igraph_degree(&my_graph.rewired_graph,&indegree,igraph_vss_all(),IGRAPH_IN,/*count self-loops=*/0);
+	      igraph_degree(&my_graph.rewired_graph,&outdegree,igraph_vss_all(),IGRAPH_OUT,/*count self-loops=*/0);
+	      //igraph_vector_add_constant(&indegree, -1);
+	      igraph_assortativity(&my_graph.rewired_graph,&outdegree,&indegree,&res1,/*directed=*/1);
+	      assort_shuffled<<res1<<endl;	    
+	    //reshuffled_graph.avg_neighbour_connectivity(&indegree,&g2,total_bats_in_lf_events);
+	  }
+	  //reshuffled_graph.print_all(&assort_shuffled);
+	  assort_shuffled.close();
+	  
+	  
+	  /*
+	  stringstream dis;
+	  dis<<"assortativity/"<<"betweenness-centrality.txt";
+	  ofstream disassort(dis.str().c_str(),ios::trunc);
+	  for (unsigned ll=0; ll<total_bats_in_lf_events; ll++) {
+	    igraph_integer_t v_id=ll;
+	    disassort<<(unsigned) VECTOR(res3)[v_id]<<" "<<(unsigned) VECTOR(res4)[v_id]<<endl;	  
+	  }
+	  disassort.close();
+	  */
+	  igraph_vector_destroy(&indegree);
+	  igraph_vector_destroy(&outdegree);
+	 }
+	  
 	/*DESTROY STUFF*/          
-	igraph_vector_destroy(&indegree);
-	igraph_vector_destroy(&outdegree);
+	
 	//igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);        
         igraph_matrix_destroy(&lf_adjmatrix);  
 	

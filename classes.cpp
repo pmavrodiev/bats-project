@@ -387,7 +387,7 @@ Bat::Bat(string Id) {
   total_following=0.0;
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
-  internal_check=0;
+  internal_check=0;  
   //last_revisit = neg_infin;
 }
 Bat::Bat() {
@@ -396,7 +396,7 @@ Bat::Bat() {
   total_following=0.0;
   cumulative_relatedness=0.0;
   part_of_lf_event=false;
-  internal_check=0;
+  internal_check=0;  
   //last_revisit = neg_infin;
 }
 void Bat::print() {
@@ -405,6 +405,18 @@ void Bat::print() {
     pair<ptime, Box*> m = get_movement_history(i);
     std::cout<<to_simple_string(m.first)<<" "<<m.second->name<<std::endl;
   } 
+}
+
+void Bat::clean_movement_history() {
+  set<pair<ptime, Box*>,movementCompare>::iterator itr;
+  ptime previous_entry = neg_infin; 
+  time_duration td = minutes(10);
+  for (itr=movement_history.begin(); itr != movement_history.end(); itr++) {
+    if (itr->first - previous_entry >= td) {
+      cleaned_movement_history.push_back(*itr);
+      previous_entry = itr->first;
+    }
+  }
 }
 
 
@@ -514,6 +526,8 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     /*set up a new error handler which doesnt automatically quit on errors*/
     //igraph_error_type_t new_handler;
     igraph_error_handler_t *old_handler = igraph_set_error_handler(&igraph_error_handler_printignore);    
+    igraph_warning_handler_t *old_warning_handler = igraph_set_warning_handler(&igraph_warning_handler_ignore);
+    
     int errcode = igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);    
     /**/
     igraph_vector_destroy(&edge_importance);
@@ -522,12 +536,83 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     return errcode;
 }
 
-void myigraph::rewire_edges() {
+void myigraph::rewire_edges(unsigned long seed) {   
+   //igraph_copy(&rewired_gaph,&graph);
+   //igraph_rewire_edges(&rewired_graph,1.0,/*loops=*/false,/*multiple edges=*/true);  
+  //init the random number generators
+  igraph_rng_t rng;   
+  igraph_rng_init(&rng,&igraph_rngtype_mt19937);
+  igraph_rng_seed(&rng,seed); 
+  igraph_matrix_t original_adj_matrix, rewired_adj_matrix;
+  igraph_matrix_init(&original_adj_matrix,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+  igraph_matrix_null(&original_adj_matrix);
+  igraph_matrix_init(&rewired_adj_matrix,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+  igraph_matrix_fill(&rewired_adj_matrix,0);
+  
+  igraph_get_adjacency(&graph,&original_adj_matrix,IGRAPH_GET_ADJACENCY_BOTH,false); 
+  long n_vs = igraph_adjlist_size(&adjlist);
+  
+  for (long int r=0; r<igraph_matrix_nrow(&original_adj_matrix); r++) {
+    for (long int c=0; c<igraph_matrix_ncol(&original_adj_matrix); c++) {
+      long nedges = MATRIX(original_adj_matrix,r,c);
+      while (nedges) {
+	long int row_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	long int col_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	MATRIX(rewired_adj_matrix,row_idx,col_idx)++;
+	nedges--;
+      }
+    }
+  }
+  if (rewired)
+     igraph_destroy(&rewired_graph);
+  
+  igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
+  rewired=true;
+}
+
+
+void myigraph::rewire_edges2(vector<double> probs, unsigned long seed) {   
+   //igraph_copy(&rewired_gaph,&graph);
+   //igraph_rewire_edges(&rewired_graph,1.0,/*loops=*/false,/*multiple edges=*/true);  
+  //init the random number generators
+  igraph_rng_t rng;   
+  igraph_rng_init(&rng,&igraph_rngtype_mt19937);
+  igraph_rng_seed(&rng,seed); 
+  igraph_matrix_t original_adj_matrix, rewired_adj_matrix;
+  igraph_matrix_init(&original_adj_matrix,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+  igraph_matrix_null(&original_adj_matrix);
+  igraph_matrix_init(&rewired_adj_matrix,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+  igraph_matrix_fill(&rewired_adj_matrix,0);
+  
+  igraph_get_adjacency(&graph,&original_adj_matrix,IGRAPH_GET_ADJACENCY_BOTH,false); 
+  long n_vs = igraph_adjlist_size(&adjlist);
+  
+  for (long int r=0; r<igraph_matrix_nrow(&original_adj_matrix); r++) {
+    for (long int c=0; c<igraph_matrix_ncol(&original_adj_matrix); c++) {
+      long nedges = MATRIX(original_adj_matrix,r,c);
+      while (nedges) {
+	long int row_idx = igraph_rng_get_integer(&rng,0,n_vs-1); //follower
+	long int col_idx = sample_rnd(probs,&rng);//igraph_rng_get_integer(&rng,0,n_vs-1); //leader
+	MATRIX(rewired_adj_matrix,row_idx,col_idx)++;
+	nedges--;
+      }
+    }
+  }
+  if (rewired)
+     igraph_destroy(&rewired_graph);
+  
+  igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
+  rewired=true;
+}
+
+
+
+void myigraph::rewire_edges3(unsigned long seed) {  
    //init the random number generators
    igraph_rng_t rng;
    //igraph_rngtype_mt19937 rng_type;
    igraph_rng_init(&rng,&igraph_rngtype_mt19937);
-   igraph_rng_seed(&rng,time(0)*1000); //current time in milliseconds
+   igraph_rng_seed(&rng,seed); 
    /**/
    long n_vs = igraph_adjlist_size(&adjlist);
    for (long vid=0; vid<n_vs; vid++) {
@@ -542,7 +627,7 @@ void myigraph::rewire_edges() {
    }
    /*now init the rewired graph*/   
    if (rewired)
-     igraph_destroy(&rewired_graph);
+     igraph_destroy(&rewired_graph); 
    
    igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
    rewired=true;
@@ -550,17 +635,71 @@ void myigraph::rewire_edges() {
 
 }
 
-void myigraph::print_adjacency_matrix(int which_graph) {
+void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
+   //init the random number generators
+   igraph_rng_t rng;   
+   igraph_rng_init(&rng,&igraph_rngtype_mt19937);      
+   igraph_rng_seed(&rng,seed); 
+   
+   long n_vs = igraph_adjlist_size(&adjlist);
+   
+   for (long vid=0; vid<n_vs; vid++) {   
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
+       //the neighbours of vid from the adjacency list
+      for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
+	long random_number = vid;
+	while (random_number == vid)
+	  random_number = sample_rnd(probs,&rng);
+	  //random_number=igraph_rng_get_integer(&rng,0,n_vs-1);	
+	VECTOR(*vid_ptr)[neighbours] = random_number;
+      }
+   }
+   /*now init the rewired graph*/   
+   if (rewired)
+     igraph_destroy(&rewired_graph);
+   
+   igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
+   rewired=true;
+   igraph_rng_destroy(&rng);  
+}
+
+long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
+  /*create a vector with the cumulative frequencies*/
+  std::vector<double> cdf(probs.size()+1,0);
+  for (unsigned i=1; i<= probs.size(); i++) 
+    cdf[i] = cdf[i-1] + probs[i-1];  
+  
+  cdf[cdf.size()-1] = 1.0; //deal with rounding issues
+  igraph_real_t random_number = igraph_rng_get_unif01(rnd);
+  bool found = false;
+  long j=1;
+  for (j=1; j< cdf.size(); j++) {
+    //cout<<cdf[j-1]<<"\t"<<cdf[j]<<"\t"<<random_number<<endl;
+    if (random_number > cdf[j-1] && random_number <= cdf[j])
+      found=true;
+    if (found) break;
+  }  
+  return j-1;
+}
+
+
+
+void myigraph::print_adjacency_matrix(int which_graph, ostream *out) {
     //0 for original graph, 1 for the rewired
     igraph_matrix_t m;
     igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
     igraph_matrix_null(&m);
-    igraph_get_adjacency((which_graph==0 ? &graph: &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+    igraph_get_adjacency((which_graph==0 ? &graph: &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);        
+    *out<<";";
+    for (unsigned i=0; i<igraph_matrix_nrow(&weighted_adj_matrix); i++) 
+      *out<<i<<";";
+    *out<<endl;
     for (long r=0; r<igraph_matrix_nrow(&m); r++) {
+      *out<<r<<";";
       for (long c=0; c<igraph_matrix_ncol(&m); c++) {
-	cout<<MATRIX(m,r,c)<<"\t";      
+	*out<<MATRIX(m,r,c)<<";";      
       }
-      cout<<endl;   
+      *out<<endl;   
     }
     igraph_matrix_destroy(&m);
 
