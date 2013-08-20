@@ -12,7 +12,7 @@ CPP 			= g++
 DEBUG			= -g
 OPTIM			= -O3
 CPPFLAGS 		= -Wall -Wextra -pedantic -Wshadow ${DEBUG}
-LDFLAGS			= -ll -lboost_date_time -ligraph -lsqlite3
+LDFLAGS			= -lfl -lboost_date_time -ligraph -lsqlite3
 OBJS			= classes.o
 RM			= rm
 

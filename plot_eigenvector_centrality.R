@@ -4,7 +4,7 @@ library(stats)
 library(nortest)
 library(igraph)
 
-year=2008
+year=2007
 
 directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/",year,sep="")
 
@@ -65,19 +65,26 @@ pnorm(0.385007,mean(eigenvector.shuffled.matrix.sorted.cleaned[2,]),sd(eigenvect
 
 
 
-median(eigenvector.shuffled.matrix.sorted.cleaned[2,])
+p.values = rep(NA,nrow(eigenvector.shuffled.matrix.sorted))
+for (r in 1:nrow(eigenvector.shuffled.matrix.sorted)) {
+  p.values[r] = length(which(eigenvector.shuffled.matrix.sorted.cleaned[r,] > 
+           eigenvector.original[r])) / length(eigenvector.shuffled.matrix.sorted[r,])
+                    
+}
 
-CairoPDF(file="lf-network-comparison-rewired2.pdf",width=12,height=10)
+points.pch = ifelse(p.values<0.05,16,4)
+CairoPDF(file="lf-network-model-1.pdf",width=12,height=10)
 plot(X,eigenvector.original,type="o",ylim=c(0,1),lwd=3,cex=2,
-     pch=4,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
+     pch=points.pch,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
      cex.lab=2)
 polygon(x=c(X,rev(X)),
         y=c(yminus,rev(yplus)),
         col=rgb(0/255,0/255,255/255,alpha=0.3,maxColorValue=1),border=NA)
 lines(X,ymedian,type="o",col="blue",lwd=3,cex=2,pch=4)
+legend("topright","Model 1",cex=3)
 dev.off()
 
-#now assortativity
+_#now assortativity
 setwd("/home/pmavrodiev/Documents/bats/result_files/assortativity")
 assortativity.original=read.table("2008.txt")
 

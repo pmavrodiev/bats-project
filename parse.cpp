@@ -7,8 +7,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
-//#include <boost/foreach.hpp>
-//#include <boost/tokenizer.hpp>
+#include <boost/program_options.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -28,6 +27,7 @@ using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
+using namespace boost::program_options;
 
 /*TODO - read the number of the reading device in each raw file and if it does not correspond
 	 to the reading device in that box, disregard the readings. For now, we have to manually
@@ -45,14 +45,13 @@ using namespace boost::gregorian;
 
 /*searches in a vector of lf_events for a particular event*/
 bool lf_exists(vector<Lf_pair> *vec_ptr, Lf_pair *element) {
-    for (unsigned i=0; i<vec_ptr->size(); i++) {
+    for (unsigned i=0; i<vec_ptr->size(); i++) 
         if ((*vec_ptr)[i].equals(*element))
-            return true;
-    }
+	  return true;    
     return false;
 }
 
-
+/** @OBSOLETE **/
 /* Given "number" find a bin for it in a 128-length array.
    Which array is taken for the binning depends on the flag
    argument. All possible arrays are defined within the function.
@@ -503,7 +502,6 @@ void initBoxes(const char* dirname) {
     struct stat st;
     string all_box("100"), majority_box("66"),minority_box("33"), control_box("0"),majority_box2("67");
     unsigned count=0;
-
     dir = opendir (dirname);
     if (dir != NULL) {
         /* print all the files and directories within directory */
@@ -520,10 +518,8 @@ void initBoxes(const char* dirname) {
                 if (ref.is_not_a_date_time())
                     ref = pos_infin;
 		else {
-		    string tmp = to_iso_string(ref);
-		    //cout<<box_occupation_deadline[dir_entry]<<endl;
-		    string new_date = tmp.substr(0,tmp.length()-6) + box_occupation_deadline[dir_entry];
-		    //cout<<dir_entry<<"\t"<<new_date<<endl;
+		    string tmp = to_iso_string(ref);		    
+		    string new_date = tmp.substr(0,tmp.length()-6) + box_occupation_deadline[dir_entry];		    
 		    occupation_time = ptime(from_iso_string(new_date));
 		}
                 if (dir_entry.find(all_box) != string::npos) {
@@ -532,7 +528,7 @@ void initBoxes(const char* dirname) {
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
                 }
-                else if (dir_entry.find(majority_box) != string::npos ||
+                else if (dir_entry.find(majority_box)  != string::npos ||
                          dir_entry.find(majority_box2) != string::npos) {
                     Box b(2,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
@@ -598,11 +594,9 @@ void processDataDirectory(string dir_name,string box_name) {
                 Box *targetBox = &boxes[box_name];
                 for (unsigned i=0; i<box_entries.size(); i++) {
                     /*is the given transpoder id a bat?*/
-                    if (bats_map.find(box_entries[i].first) == bats_map.end()) {
-                        //if (find(bats_vector.begin(),bats_vector.end(),box_entries[i].first) == bats_vector.end()) {
-                        if (find(transponders_vector.begin(),transponders_vector.end(),box_entries[i].first) == transponders_vector.end()) {
-                            cerr<<box_entries[i].first<<" neither a bat nor a transpoder"<<endl;
-                        }
+                    if (bats_map.find(box_entries[i].first) == bats_map.end()) {                        
+                        if (find(transponders_vector.begin(),transponders_vector.end(),box_entries[i].first) == transponders_vector.end()) 
+                            cerr<<box_entries[i].first<<" neither a bat nor a transpoder"<<endl;                        
                         continue;
                     }
                     /**********************************/
@@ -677,25 +671,9 @@ int main(int argc, char**argv) {
         yylex();	
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();
-        /* remove this later (1)*/
-        /* argv[2] = roundtrip time
-         * argv[3] = lf_delay
-         * argv[4] = occupation_deadline
-         */
-        //stringstream foo,moo,goo;
-        //foo<<argv[2];
-        //moo<<argv[3];
-        //goo<<argv[4];
-        //int tt,gg;
-        //foo>>tt;
-        //moo>>gg;
-        //roundtrip_time = minutes(tt);
-        //lf_delay = minutes(gg);
-        //occupation_deadline=goo.str();
-        /*******************/
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13,ss14,ss15;
-	string outdir="output_files_new_2/"+Year;//"output_files_new_2";
+	string outdir="output_files_new_2/"+Year;
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
         ss6<<outdir<<"/lf_valid_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
@@ -720,19 +698,6 @@ int main(int argc, char**argv) {
 	/***********************/
         base_dir = argv[0];
         initBoxes(base_dir);
-        /*remove that later (2)*/
-        //change the occupation deadline of the boxes     
-        /*
-        for (map<string,Box>::iterator kk=boxes.begin(); kk!=boxes.end(); kk++) {
-            if (!kk->second.occupiedWhen.is_not_a_date_time() && !kk->second.occupiedWhen.is_pos_infinity()) {
-                string existingDate = to_iso_string(kk->second.occupiedWhen);
-                string newDate = existingDate.substr(0,existingDate.length()-6) + occupation_deadline;
-                ptime occupation_time(from_iso_string(newDate));
-                kk->second.occupiedWhen = occupation_time;
-            }
-        }
-        */
-        /*********************/	
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
 
@@ -859,6 +824,8 @@ int main(int argc, char**argv) {
 	}
         /**********************************************************/
 	/*after all bat objects have been created update them with box programming information*/
+	set<string> programmed_but_absent_from_data;
+	pair<set<string>::iterator, bool> s_itr;
 	for (map<string,vector<string> >::iterator itr_box_prog = box_programming.begin(); itr_box_prog != box_programming.end(); itr_box_prog++) {	 
 	  string box = itr_box_prog->first;
 	  for (unsigned jj=0; jj<itr_box_prog->second.size(); jj++) {
@@ -877,15 +844,17 @@ int main(int argc, char**argv) {
 	    }
 	    else {
 	      Bat &ref = bats_records[programmed_bat];
-	      if (ref.hexid != programmed_bat) {
-		cout<<"Info: bat "<<programmed_bat<<" is programmed in a box but no readings exist for her before box occupation"<<endl; //exit(1);
-	      }
+	      if (ref.hexid != programmed_bat) 
+		s_itr = programmed_but_absent_from_data.insert(programmed_bat);					      
 	      mybool &bool_ref = ref.disturbed_in_box[box];
 	      bool_ref.custom_boolean = TRUE;
 	    }
 	  }	  
 	}
-        
+	//each programmed but absent bat is reported only once
+        for (set<string>::iterator s_itr2=programmed_but_absent_from_data.begin(); s_itr2 != programmed_but_absent_from_data.end();s_itr2++)
+	    cout<<"Info: bat "<<*s_itr2<<" is programmed in a box but no readings exist for her before box occupation"<<endl; //exit(1);
+        /***/
         /*after all box objects have been created update the box objects with occupying information*/
 	for (map<string,vector<string> >::iterator itr_box_occup = box_occup_bats.begin(); itr_box_occup != box_occup_bats.end(); itr_box_occup++) {	 
 	  string box = itr_box_occup->first;
@@ -913,9 +882,6 @@ int main(int argc, char**argv) {
 	  }	  
 	}	 
 	/*******/
-	//for (map<string,Box>::iterator iii=boxes.begin(); iii!=boxes.end(); iii++) {
-	  //iii->second.print_detailed_occupation();
-	//}
 	/*CALCULATE THE FREQUENCY OF BOX OCCUPATION BY A DISTURBED INDIVIDUAL
 	  BASED ON THE TOTAL NUMBER OF OCCUPYING INDIVIDUALS*/
 	map<myint,myint> disturbed_occupation;
@@ -1003,7 +969,7 @@ int main(int argc, char**argv) {
         //check if a bat has not been found as either mother or a daughter
         for (map<string,Bat>::iterator j=bats_records.begin(); j!=bats_records.end(); j++) {
             vector<string>::iterator mother_itr,daughters_itr;
-            string bat = j->second.hexid;
+            string bat = j->second.hexid;	    
             mother_itr = find(mothers.begin(),mothers.end(),bat);
             daughters_itr = find(daughters.begin(),daughters.end(),bat.substr(bat.length()-4,4));
             if (mother_itr == mothers.end() && daughters_itr == daughters.end() && verbflag) {
@@ -1027,8 +993,7 @@ int main(int argc, char**argv) {
 	  exit(1);
 	}	
         for (to=multibats.begin(); to != multibats.end(); to++) {
-            //find the boundaries of a box         
-            //cout<<to->box_name<<endl;
+            //find the boundaries of a box                     
             vector<BatEntry> box_bat_entries; //stores all bat_entries for each box
             map<string,ptime> lastSeen; //when was a given bat_id last recorded in the data
             vector<Lf_pair> current_box_pairs;
@@ -1674,10 +1639,11 @@ int main(int argc, char**argv) {
 	  }
 	  //evectorfile.close();
 	  cout<<"DONE"<<endl; 
+	  //exit(1);
 	  /*********/
 	  cout<<"Writing graph to file ...";
 	  stringstream graph_outputfile;
-	  graph_outputfile<<outdir<<"/graph_"<<Year<<".csv";
+	  graph_outputfile<<outdir<<"/graph_"<<Year<<".csv"; //this was for Nico
 	  evectorfile.open(graph_outputfile.str().c_str(),ios::out);
 	  my_graph.print_adjacency_matrix(0,&evectorfile);
 	  evectorfile.close();
@@ -1743,19 +1709,21 @@ int main(int argc, char**argv) {
 	    }
 	  /**/
 	  srand (time(NULL));
-	  for (unsigned kk=0; kk<10000; kk++) {	      
+	  for (unsigned kk=0; kk<100000; kk++) {	      
 	      igraph_vector_t rewired_centralities;
 	      igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
 	      igraph_vector_null(&rewired_centralities);
-	      my_graph.rewire_edges2(probs,rand());
+	      //my_graph.rewire_edges5();
+	      //my_graph.rewire_edges2(probs,rand());
 	      //my_graph.rewire_edges4(probs,rand());
 	      //my_graph.rewire_edges3(rand());
-	      //my_graph.rewire_edges(rand());
+	      my_graph.rewire_edges(rand());
 	      while (my_graph.eigenvector_centrality(&rewired_centralities,1)) 
-		 //my_graph.rewire_edges(rand());
+		 //my_graph.rewire_edges5();
+		 my_graph.rewire_edges(rand());
 		 //my_graph.rewire_edges3(rand());
 		 //my_graph.rewire_edges4(probs,rand());
-		 my_graph.rewire_edges2(probs,rand());
+		 //my_graph.rewire_edges2(probs,rand());
 	    
 	      //get the edge attributes
 	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {

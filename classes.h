@@ -345,6 +345,7 @@ public:
   void rewire_edges2(vector<double> probs,unsigned long seed);
   void rewire_edges3(unsigned long seed);
   void rewire_edges4(vector<double> probs,unsigned long seed);
+  void rewire_edges5();
   void print_adjacency_matrix(int which_graph, ostream *out);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
   ~myigraph();

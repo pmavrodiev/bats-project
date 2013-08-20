@@ -410,7 +410,7 @@ void Bat::print() {
 void Bat::clean_movement_history() {
   set<pair<ptime, Box*>,movementCompare>::iterator itr;
   ptime previous_entry = neg_infin; 
-  time_duration td = minutes(10);
+  time_duration td = minutes(10); //10 minutes is hard-coded for now
   for (itr=movement_history.begin(); itr != movement_history.end(); itr++) {
     if (itr->first - previous_entry >= td) {
       cleaned_movement_history.push_back(*itr);
@@ -525,7 +525,7 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     igraph_arpack_options_init(&aroptions);	      
     /*set up a new error handler which doesnt automatically quit on errors*/
     //igraph_error_type_t new_handler;
-    igraph_error_handler_t *old_handler = igraph_set_error_handler(&igraph_error_handler_printignore);    
+    igraph_error_handler_t *old_handler = igraph_set_error_handler(&igraph_error_handler_ignore);    
     igraph_warning_handler_t *old_warning_handler = igraph_set_warning_handler(&igraph_warning_handler_ignore);
     
     int errcode = igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);    
@@ -536,6 +536,7 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     return errcode;
 }
 
+/*Simplest rewiring mechanism. Each edge is assigned to 2 randomly chosen vertices*/
 void myigraph::rewire_edges(unsigned long seed) {   
    //igraph_copy(&rewired_gaph,&graph);
    //igraph_rewire_edges(&rewired_graph,1.0,/*loops=*/false,/*multiple edges=*/true);  
@@ -568,9 +569,11 @@ void myigraph::rewire_edges(unsigned long seed) {
   
   igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
   rewired=true;
+  igraph_rng_destroy(&rng);
 }
 
-
+/*Weighted random rewiring. Followers are still chosen at random, but
+  leaders are chosen proportionate to their activity*/
 void myigraph::rewire_edges2(vector<double> probs, unsigned long seed) {   
    //igraph_copy(&rewired_gaph,&graph);
    //igraph_rewire_edges(&rewired_graph,1.0,/*loops=*/false,/*multiple edges=*/true);  
@@ -603,10 +606,10 @@ void myigraph::rewire_edges2(vector<double> probs, unsigned long seed) {
   
   igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
   rewired=true;
+  igraph_rng_destroy(&rng);
 }
 
-
-
+/*preserve out-degree distribution*/
 void myigraph::rewire_edges3(unsigned long seed) {  
    //init the random number generators
    igraph_rng_t rng;
@@ -635,6 +638,7 @@ void myigraph::rewire_edges3(unsigned long seed) {
 
 }
 
+/*preserve out-degree distribution with weighted leaders proportionate to activity*/
 void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
    //init the random number generators
    igraph_rng_t rng;   
@@ -662,6 +666,79 @@ void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
    rewired=true;
    igraph_rng_destroy(&rng);  
 }
+/*preserve in-degree and out-degree distribution*/
+void myigraph::rewire_edges5() {
+    bool repeat = true;
+    //init the random number generators
+    igraph_rng_t rng;
+    //igraph_rngtype_mt19937 rng_type;
+    igraph_rng_init(&rng,&igraph_rngtype_mt19937);
+    igraph_rng_seed(&rng,time(0)*1000); //current time in milliseconds
+    /**/
+    long n_vs = igraph_adjlist_size(&adjlist);
+    while (repeat) {
+      /*auxillary structures*/
+      map<long,int> in_degree, out_degree;
+      for (long vid=0; vid<n_vs; vid++) {
+	//the neighbours of vid from the adjacency list
+	igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
+	if (igraph_vector_size(vid_ptr) == 0) continue;
+	out_degree[vid] = igraph_vector_size(vid_ptr);      
+	for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
+	  in_degree[VECTOR(*vid_ptr)[neighbours]]++;
+	}
+      }
+      /*start the real work*/
+      igraph_matrix_fill(&weighted_adj_matrix,0); //init the adjacency matrix   
+      /*select the sources and destinations of the edges*/
+      long source = 0, destination = 0;
+      while (out_degree.size() > 0 && in_degree.size() > 0) {
+	source = igraph_rng_get_integer(&rng,0,out_degree.size()-1);      
+	/*get an iterator pointing to the element with index "source"*/
+	map<long,int>::iterator itr_src = out_degree.begin();
+	long tmp = source;
+	while (tmp-- != 0) 
+	  itr_src++;                     
+	long tmp2 = itr_src->first;      
+	map<long,int>::iterator itr_dst;
+	if (in_degree.size() == 1 && out_degree.size() == 1 &&
+	  itr_src->first == in_degree.begin()->first) {
+	  repeat = true;
+	  break;
+	}	
+	if (in_degree.size() == 1 && itr_src->first == in_degree.begin()->first) 
+	  continue;
+	while (tmp2 == itr_src->first) {//exclude self-links
+	  destination = igraph_rng_get_integer(&rng,0,in_degree.size()-1);	      
+	  /*get an iterator pointing to the element with index "dest"*/
+	  itr_dst = in_degree.begin();
+	  tmp = destination;
+	  while (tmp-- != 0) 
+	    itr_dst++;
+	  tmp2 = itr_dst->first;
+	}      
+	MATRIX(weighted_adj_matrix,itr_src->first,itr_dst->first)++;   
+	/*finish off the logic*/
+	itr_src->second--;
+	itr_dst->second--;
+	if (itr_src->second == 0)
+	  out_degree.erase(itr_src);
+	if (itr_dst->second == 0)
+	  in_degree.erase(itr_dst);
+	repeat = false;
+      }
+    /**/
+    /*sanity check*/
+    if (!repeat && out_degree.size() != in_degree.size())
+      cerr<<"Error: Map sizes are different"<<endl;
+    }
+    
+   myigraph dummy_graph(&weighted_adj_matrix);
+   igraph_copy(&rewired_graph,&dummy_graph.graph);  
+   rewired=true;
+   igraph_rng_destroy(&rng);
+  }
+  
 
 long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
   /*create a vector with the cumulative frequencies*/
@@ -673,8 +750,7 @@ long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
   igraph_real_t random_number = igraph_rng_get_unif01(rnd);
   bool found = false;
   long j=1;
-  for (j=1; j< cdf.size(); j++) {
-    //cout<<cdf[j-1]<<"\t"<<cdf[j]<<"\t"<<random_number<<endl;
+  for (j=1; j< cdf.size(); j++) {    
     if (random_number > cdf[j-1] && random_number <= cdf[j])
       found=true;
     if (found) break;

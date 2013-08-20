@@ -86,8 +86,9 @@ vector < pair<string,string> >  box_entries;
 /*auxillary*/
 char *base_dir;
 short counter = 0;
-string version = "0.1";
+string version = "1.0";
 
+/** @OBSOLETE **/
 /*colors for the nodes in the leading-following graph.
   used topo.colors from R to generate 128 colors */
 double red[] = {
