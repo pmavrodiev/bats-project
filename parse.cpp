@@ -8,6 +8,7 @@
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/program_options.hpp>
+#include <boost/exception/all.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -635,19 +636,34 @@ void processDataDirectory(string dir_name,string box_name) {
 /* ===
  *                                                                      */
 int main(int argc, char**argv) {
-    argv++;
-    argc--;
-    /* argv[1] = config file
-     */
-    if (argc != 2) {
-        cout<<"Version: "<<version<<endl<<endl;
-        cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
-        cout<<"<dir>\t full path to the directory containing transponder data files"<<endl;
-        cout<<"<config_file>\t full path to the configuration file"<<endl<<endl;
-        return 0;
+    vector<string> input_paths;
+    try {      
+      options_description desc("Allowed options");
+      desc.add_options()
+      ("help", "produce help message")
+      ("input", value<vector<string> >()->multitoken(), "data directory and year");
+      variables_map vm;
+      store(parse_command_line(argc, argv, desc), vm);
+      notify(vm);
+      if (vm.count("help")) {
+	cout<< "help - TODO"<<endl;
+	return 0;
+      }
+      if (vm.count("input")) {	
+	input_paths = vm["input"].as<vector<string> >();
+	if (input_paths.size() % 2 != 0) {      
+	  cerr<<"error: Not enough input options"<<endl;
+	  return 1;
+        }
+	//for (unsigned i=0; i<input_paths.size(); i++)
+	  //cout<<input_paths[i]<<"\t";
+      }
     }
-    else {	
-        /*init the months map*/
+    catch(std::exception &e) {cerr<<"error: "<<e.what()<<endl;}
+    catch(...) {cerr<<"Exception of unknown type!"<<endl;}    
+    
+    for (unsigned u=0; u <= input_paths.size() / 2; u+=2) { 
+      /*init the months map*/
         monaten["JAN"] = "01";
         monaten["FEB"] = "02";
         monaten["MAR"] = "03";
@@ -661,16 +677,6 @@ int main(int argc, char**argv) {
         monaten["NOV"] = "11";
         monaten["DEC"] = "12";
         /********************/
-        /*init the box occupation dates from bats_config.txt*/
-        char* file_name = argv[1];
-        yyin = fopen(file_name,"r");
-        if (yyin == NULL) {
-            perror(file_name);
-            exit(1);
-        }
-        yylex();	
-        nbats = bats_map.size(); //bats_vector.size();
-        ntransponders = transponders_vector.size();
         /*init the output files*/
         stringstream ss5,ss6,ss7,ss8,ss9,ss10,ss11,ss12,ss13,ss14,ss15;
 	string outdir="output_files_new_2/"+Year;
@@ -696,7 +702,20 @@ int main(int argc, char**argv) {
 	lf_valid_time_diff_viz = ss14.str();
 	ss15<<outdir<<"/time_to_occ_disturbed_"<<Year;
 	/***********************/
-        base_dir = argv[0];
+
+        /*init the box occupation dates from bats_config.txt*/	
+        const char* file_name = input_paths[u+1].c_str();
+        yyin = fopen(file_name,"r");
+        if (yyin == NULL) {
+            perror(file_name);
+            exit(1);
+        }
+        yylex();	
+	fclose(yyin);
+        nbats = bats_map.size(); //bats_vector.size();
+        ntransponders = transponders_vector.size();
+	continue;
+        base_dir = input_paths[u].c_str();
         initBoxes(base_dir);
         /*this call is in the beginning, as advised in the igraph manual*/
         igraph_i_set_attribute_table(&igraph_cattribute_table);
@@ -1250,29 +1269,10 @@ int main(int argc, char**argv) {
             //bx->name = from->box_name; //THIS IS VERY VERY WRONG 
 	    
         } //end for (to=multibats.begin(); to != multibats.end(); to++)
-	
-	/*output the social vs. personal lf events for each box*/	
-	/*
-	ofstream os(social_personal_box_lf.c_str(),ios::out);
-	if (!os.good()) {
-            perror(social_personal_box_lf.c_str());
-            exit(1);
-        }
-        cout<<"Outputting personal and social lf events for each box...";
-	for (map<string,Box>::iterator b_itr=boxes.begin(); b_itr!=boxes.end(); b_itr++) {  
-	  os<<b_itr->first<<" "<<b_itr->second.personal_d_lf_events+b_itr->second.personal_ud_lf_events<<" ";
-	  os<<b_itr->second.social_d_lf_events+b_itr->second.social_ud_lf_events<<" "<<b_itr->second.total_lf_events<<" ";
-	  if (b_itr->second.getOccupiedDiscoveredDelta().is_pos_infinity()) 
-	    os<<"NA"<<endl;
-	  else
-	    os<<b_itr->second.getOccupiedDiscoveredDelta().total_seconds() / 3600.0<<endl;
-	}	
-	os.close();
-	cout<<"DONE"<<endl;
-	*/
-	
+		
 	/****/
 	cout<<"Total readings:\t"<<total_readings<<endl;
+	
 	/*normalize each bats' activity'*/
 	
 	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
@@ -1812,10 +1812,17 @@ int main(int argc, char**argv) {
 	disassort.close();
 	igraph_vector_destroy(&degree);
 	igraph_destroy(&star);
-	*/
+	*/	
 	
-    }
+	 /*reset some important data structure*/
+	 boxes.clear();
+	 multibats.clear();
 
+	}
+	
+	for (map<string,unsigned>::iterator j=bats_map.begin(); j!=bats_map.end(); j++) 
+	  cout<<j->first<<"\t"<<j->second<<endl;
+	
     if (create_sqlitedb) {
             /* write the box recordings in a database if so configured. see the create_sqlitedb
             flag in the global definitions */

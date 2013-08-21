@@ -19,7 +19,6 @@ ptime detailed_occupation_time;
 vector<string> detailed_box_occupation_bats;
 vector<pair<ptime, vector<string> > > box_detailed_occupation_vector;
 char *pch;
-unsigned int bats_counter = 0;
 
 pair<string,string> entry_pair;
 extern vector < pair<string,string> >  box_entries; 
@@ -46,6 +45,7 @@ extern map<string,vector<pair<ptime, vector<string> > > > occupation_history;
 string box_name, box_date,current_programmed_box,current_occup_box,box_installation_name,box_installation_date;
 
 extern map<string,unsigned,bool(*)(string,string)> bats_map;
+extern unsigned int bats_counter;
 //extern vector<string> bats_vector;
 extern vector<string> transponders_vector;
 extern time_duration roundtrip_time;
@@ -205,8 +205,7 @@ LETTER [a-zA-Z]
 <BATUPDATE>{DIGIT}+ {
   int digit;
   stringstream ss;
-  pch = strtok(yytext,".");
-  //printf("%s\n",pch);
+  pch = strtok(yytext,".");  
   ss<<pch; ss>>digit;
   roundtrip_time = minutes(digit);
 }
@@ -222,8 +221,10 @@ LETTER [a-zA-Z]
 <BATS>{HEXDIGIT}{10} {  
   string bat_hexid;
   pch = strtok(yytext,".");
-  bat_hexid = pch;
-  bats_map[bat_hexid] = bats_counter++;
+  bat_hexid = pch;  
+  //only if we haven't seen the bat already
+  if (bats_map.find(bat_hexid) == bats_map.end()) 
+    bats_map[bat_hexid] = bats_counter++;
   string last4 = bat_hexid.substr(bat_hexid.size()-4,4);  
   short_to_long[last4] = bat_hexid;
   //bats_vector.push_back(bat_hexid);

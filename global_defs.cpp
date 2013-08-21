@@ -68,8 +68,13 @@ bool(*fn_pt3)(pair<unsigned,unsigned>,pair<unsigned,unsigned>) = paircomp;
 
 /*all bats in a map keyed by name and indexed from 0*/
 map<string,unsigned,bool(*)(string,string)> bats_map(fn_pt);
+unsigned int bats_counter=0;
+/*same as above, but valid for the data from all years*/
+map<string,unsigned,bool(*)(string,string)> bats_map_all_data(fn_pt);
 /*stores a movement history of individual bats*/
 map<string,Bat,bool(*)(string,string)> bats_records(fn_pt);
+/*same as above, but valid for the data from all years*/
+map<string,Bat,bool(*)(string,string)> bats_records_all_data(fn_pt);
 /*stores all boxes with all activity over time*/
 map<string,Box,bool(*)(string,string)> boxes(fn_pt);
 /*stores boxes names and associated numerical index*/
@@ -84,7 +89,7 @@ map<string,vector<string> > box_occup_bats;
 /*initialised by the flex scanner*/
 vector < pair<string,string> >  box_entries;
 /*auxillary*/
-char *base_dir;
+const char *base_dir;
 short counter = 0;
 string version = "1.0";
 
