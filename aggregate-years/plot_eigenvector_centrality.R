@@ -4,14 +4,14 @@ library(stats)
 library(nortest)
 library(igraph)
 
-year=2009
-
-directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/",year,sep="")
+directory = "/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/"
 
 setwd(directory)
 
-original=paste("indegree_original_",year,".dat",sep="")
-shuffled=paste("indegree_shuffled_",year,".dat",sep="")
+model = 5
+
+original="combined-original-evs.txt"
+shuffled=paste("combined-model-",model,".dat",sep="")
 
 eigenvector.original = read.table(original)
 eigenvector.original = sort(eigenvector.original[,2],decreasing=TRUE)
@@ -47,22 +47,22 @@ ymedian = apply(eigenvector.shuffled.matrix.sorted.cleaned,1
                 ,median)
 
 
-h0=hist(eigenvector.shuffled.matrix.sorted.cleaned[1,],breaks=50,plot=FALSE)
-plot(h0$mids,h0$counts/sum(h0$counts),type="o")
-
-h=hist(rnorm(1000000,mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,])),breaks=50,plot=FALSE)
-lines(h$mids,h$counts/sum(h$counts),col="blue")
-
-ks.test(eigenvector.shuffled.matrix.sorted.cleaned[1,],"pnorm",mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,]))
-
-shapiro.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-qqnorm(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-ad.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-
-dlnorm(0.691963,mean(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])),sd(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])))
-
-pnorm(0.385007,mean(eigenvector.shuffled.matrix.sorted.cleaned[2,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[2,]))
-
+# h0=hist(eigenvector.shuffled.matrix.sorted.cleaned[1,],breaks=50,plot=FALSE)
+# plot(h0$mids,h0$counts/sum(h0$counts),type="o")
+# 
+# h=hist(rnorm(1000000,mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,])),breaks=50,plot=FALSE)
+# lines(h$mids,h$counts/sum(h$counts),col="blue")
+# 
+# ks.test(eigenvector.shuffled.matrix.sorted.cleaned[1,],"pnorm",mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,]))
+# 
+# shapiro.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# qqnorm(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# ad.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# 
+# dlnorm(0.691963,mean(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])),sd(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])))
+# 
+# pnorm(0.385007,mean(eigenvector.shuffled.matrix.sorted.cleaned[2,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[2,]))
+# 
 
 
 p.values = rep(NA,nrow(eigenvector.shuffled.matrix.sorted))
@@ -73,15 +73,15 @@ for (r in 1:nrow(eigenvector.shuffled.matrix.sorted)) {
 }
 
 points.pch = ifelse(p.values<0.05,16,4)
-CairoPDF(file="lf-network-model-1.pdf",width=12,height=10)
-plot(X,eigenvector.original,type="o",ylim=c(0,6),lwd=3,cex=2,
+CairoPDF(file=paste("combined-model-",model,".pdf",sep=""),width=12,height=10)
+plot(X,eigenvector.original,type="o",ylim=c(0,1),lwd=3,cex=2,
      pch=points.pch,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
      cex.lab=2)
 polygon(x=c(X,rev(X)),
         y=c(yminus,rev(yplus)),
         col=rgb(0/255,0/255,255/255,alpha=0.3,maxColorValue=1),border=NA)
 lines(X,ymedian,type="o",col="blue",lwd=3,cex=2,pch=4)
-legend("topright","Model 1",cex=3)
+legend("topright",paste("Model",model,sep=""),cex=3)
 dev.off()
 
 _#now assortativity

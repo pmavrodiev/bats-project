@@ -496,8 +496,31 @@ myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     igraph_adjlist(&graph,&adjlist,IGRAPH_OUT,false);
     rewired=false;    
 }
+int myigraph::get_indegrees(igraph_vector_t *result,int which_graph) {
+  igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
+  igraph_vector_fill(result,0); 
+  //result must be initialized with all 0s
+  //1.first check if graph is disconnected by calculating both in-degrees and out-degrees
+  int errcode=igraph_degree((which_graph==0 ? &graph : &rewired_graph),result, igraph_vss_all(), IGRAPH_ALL, IGRAPH_NO_LOOPS);
+  igraph_real_t zero = 0;
+  if (igraph_vector_contains(result,zero))
+    return 1;
+  //now get the in-degree manually
+  igraph_vector_fill(result,0);
+  igraph_matrix_t m;
+  igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
+  igraph_matrix_null(&m);
+  igraph_get_adjacency((which_graph==0 ? &graph : &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+  
+  for (unsigned column=0; column < igraph_matrix_ncol(&m); column++) 
+    for (unsigned row=0; row < igraph_matrix_nrow(&m); row++) 
+      VECTOR(*result)[column] +=MATRIX(m,row,column);    
+  return 0;  
+}
 
 int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
+    igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
+    igraph_vector_null(result);  
     //which_graph: 0 for original graph, 1 for the rewired
     /*the idea is to create a new temporary graph from the adjacency matrix of this.graph,
      and calculate the eigenvector centralities from there*/
@@ -738,7 +761,34 @@ void myigraph::rewire_edges5() {
    rewired=true;
    igraph_rng_destroy(&rng);
   }
-  
+
+void myigraph::rewire_random_model(short int model, vector<double> *probs) {
+  if (model == 1) {
+    srand (time(NULL));
+    rewire_edges(rand());
+  }
+  else if (model == 2) {
+    srand (time(NULL));
+    rewire_edges2(*probs,rand());
+  }
+  else if (model == 3) {
+    srand (time(NULL));
+    rewire_edges3(rand());
+  }
+  else if (model == 4) {
+    srand(time(NULL));
+    rewire_edges4(*probs,rand());
+  }
+  else if (model == 5) {
+    rewire_edges5();
+  }
+  else {
+    cerr<<"Model "<<model<<" is not implemented"<<endl;
+    exit(1);
+  }
+
+}
+
 
 long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
   /*create a vector with the cumulative frequencies*/

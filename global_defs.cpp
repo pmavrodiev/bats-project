@@ -15,6 +15,8 @@ map<string,string> monaten; //maps month names to month numbers
 map<string,string> short_to_long; //maps short to long bat hex ids
 /*the year of the analysis*/
 string Year;
+/*how is centrality calculated*/
+short centrality = -1;
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
 time_duration roundtrip_time;// = minutes(3);
@@ -518,4 +520,5 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 /*output files*/
 string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader,lf_valid_time_diff_viz;
 string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
+string combined_networks,time_to_occupy;
 /* ==================================================================== */

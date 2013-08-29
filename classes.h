@@ -340,12 +340,15 @@ public:
   igraph_adjlist_t adjlist;
   igraph_matrix_t weighted_adj_matrix;
   myigraph(igraph_matrix_t *adjmatrix);
-  int eigenvector_centrality(igraph_vector_t *result,int which_graph); 
+  int eigenvector_centrality(igraph_vector_t *result,int which_graph);
+  int get_indegrees(igraph_vector_t *result,int which_graph);
   void rewire_edges(unsigned long seed);
   void rewire_edges2(vector<double> probs,unsigned long seed);
   void rewire_edges3(unsigned long seed);
   void rewire_edges4(vector<double> probs,unsigned long seed);
   void rewire_edges5();
+  //this is just a dispatch method, which calls the right rewiwiring procedure
+  void rewire_random_model(short model,vector<double> *probs);
   void print_adjacency_matrix(int which_graph, ostream *out);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
   ~myigraph();

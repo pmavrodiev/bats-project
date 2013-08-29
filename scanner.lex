@@ -1,3 +1,5 @@
+%option noyywrap
+%option nounput
 %{
 #include <iostream>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -52,6 +54,7 @@ extern time_duration roundtrip_time;
 extern time_duration lf_delay;
 extern string occupation_deadline;
 extern string Year;
+extern short centrality;
 extern bool create_sqlitedb;
 int comment_caller;
 %}
@@ -76,6 +79,7 @@ LETTER [a-zA-Z]
 %x OCCUPATIONDEADLINE
 %x YEAR
 %x EXPORTDATABASE
+%x CENTRALITY
 %%
 "begin{detailed_box_occupation}"	BEGIN(BOX_DETAILED_OCCUPATION);
 "begin{exportdatabase}"	BEGIN(EXPORTDATABASE);
@@ -90,6 +94,7 @@ LETTER [a-zA-Z]
 "begin{box_installation}"	BEGIN(BOX_INSTALLATION);
 "begin{box_programming}" {current_programmed_box="";BEGIN(BOX_PROGRAMMING);}
 "begin{box_occup_bats}" {current_occup_box="";BEGIN(BOX_OCCUP_BATS);}
+"begin{centrality}"	BEGIN(CENTRALITY);
 <*>"end{detailed_box_occupation}" BEGIN(INITIAL);
 <EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
 <YEAR>"end{year}" BEGIN(INITIAL);
@@ -103,6 +108,7 @@ LETTER [a-zA-Z]
 <BATUPDATE>"end{bat_update}" BEGIN(INITIAL);
 <LFDELAY>"end{lf_delay}" BEGIN(INITIAL);
 <OCCUPATIONDEADLINE>"end{occupation_deadline}" BEGIN(INITIAL);
+<CENTRALITY>"end{centrality}"  BEGIN(INITIAL);
 
 <EXPORTDATABASE>{DIGIT}{1} {
   string ss;
@@ -181,6 +187,11 @@ LETTER [a-zA-Z]
   ref.push_back(current_programmed_bat);  
 }
 
+<CENTRALITY>{DIGIT}{1} {
+  pch=strtok(yytext,".");
+  stringstream ss; ss<<pch;
+  ss>>centrality;
+}
 
 <YEAR>{DIGIT}{4} {
   pch=strtok(yytext,".");
