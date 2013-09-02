@@ -334,14 +334,15 @@ public:
 
 class myigraph {
 public:
-  bool rewired;
   igraph_t graph;
-  igraph_t rewired_graph;
-  igraph_adjlist_t adjlist;
-  igraph_matrix_t weighted_adj_matrix;
+  igraph_t *rewired_graph;
+  igraph_adjlist_t adjlist; //for the original graph and rewired in models 3,4
+  igraph_matrix_t weighted_adj_matrix; //for the original graph
   myigraph(igraph_matrix_t *adjmatrix);
   int eigenvector_centrality(igraph_vector_t *result,int which_graph);
   int get_indegrees(igraph_vector_t *result,int which_graph);
+  bool is_connected(igraph_t *g);
+  int get_sum_degrees(igraph_t *g);
   void rewire_edges(unsigned long seed);
   void rewire_edges2(vector<double> probs,unsigned long seed);
   void rewire_edges3(unsigned long seed);

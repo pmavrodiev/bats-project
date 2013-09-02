@@ -467,8 +467,8 @@ int assortativity_map::avg_neighbour_connectivity(igraph_vector_t *indegrees,
 myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     long nrow = igraph_matrix_nrow(adjmatrix);
     long ncol = igraph_matrix_ncol(adjmatrix);
-    igraph_matrix_init(&weighted_adj_matrix,nrow,ncol);
-    igraph_matrix_null(&weighted_adj_matrix);
+    //igraph_matrix_init(&weighted_adj_matrix,nrow,ncol);
+    //igraph_matrix_null(&weighted_adj_matrix);
     igraph_matrix_copy(&weighted_adj_matrix,adjmatrix);
     /*create adjacency list from weighted_adj_matrix*/
     igraph_adjlist_init_empty(&adjlist,nrow);
@@ -492,43 +492,108 @@ myigraph::myigraph(igraph_matrix_t* adjmatrix) {
 	  
       igraph_vector_destroy(&vid_ptr_adj_matrix);
     }
+    rewired_graph = NULL;
     //finally create the graph
     igraph_adjlist(&graph,&adjlist,IGRAPH_OUT,false);
-    rewired=false;    
+  
 }
+
+/*calculate the total in-degree/out-degree/total degree*/
+int myigraph::get_sum_degrees(igraph_t *g) {
+  //get the adjacency matrix of the graph
+  int result = 0;
+  igraph_integer_t nvertices=0;
+  igraph_vs_t vss = igraph_vss_all();
+  igraph_vs_size(g,&vss,&nvertices);
+  igraph_vs_destroy(&vss);
+  igraph_matrix_t m;
+  igraph_matrix_init(&m,nvertices,nvertices);
+  igraph_matrix_null(&m);
+  igraph_get_adjacency(g,&m,IGRAPH_GET_ADJACENCY_BOTH,false);
+  for (unsigned r=0; r<nvertices; r++) 
+    for (unsigned c=0; c<nvertices; c++) 
+      result += MATRIX(m,r,c);
+  
+  return result;
+  	
+}
+
+bool myigraph::is_connected(igraph_t *g) {
+  igraph_integer_t nvertices=0;
+  igraph_vs_t vss = igraph_vss_all();
+  igraph_vs_size(g,&vss,&nvertices);
+  igraph_vs_destroy(&vss);
+  igraph_matrix_t m;
+  igraph_matrix_init(&m,nvertices,nvertices);
+  igraph_matrix_null(&m);
+  igraph_get_adjacency(g,&m,IGRAPH_GET_ADJACENCY_BOTH,false); 
+  igraph_vector_t vid_ptr_row, vid_ptr_col;
+  igraph_vector_init(&vid_ptr_row,nvertices);
+  igraph_vector_null(&vid_ptr_row);
+  igraph_vector_init(&vid_ptr_col,nvertices);
+  igraph_vector_null(&vid_ptr_col);
+  for (unsigned v=0; v<nvertices; v++) { 
+    igraph_matrix_get_row(&m,&vid_ptr_row,v);
+    igraph_matrix_get_col(&m,&vid_ptr_col,v);
+    if (igraph_vector_sum(&vid_ptr_row) == 0 && igraph_vector_sum(&vid_ptr_col) == 0) {
+      igraph_matrix_destroy(&m);
+      igraph_vector_destroy(&vid_ptr_row);
+      igraph_vector_destroy(&vid_ptr_col);
+      return false;
+    }
+  }
+  igraph_matrix_destroy(&m);
+  igraph_vector_destroy(&vid_ptr_row);
+  igraph_vector_destroy(&vid_ptr_col);
+  return true;  
+}
+
+
 int myigraph::get_indegrees(igraph_vector_t *result,int which_graph) {
-  igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
+  //igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
   igraph_vector_fill(result,0); 
   //result must be initialized with all 0s
-  //1.first check if graph is disconnected by calculating both in-degrees and out-degrees
-  int errcode=igraph_degree((which_graph==0 ? &graph : &rewired_graph),result, igraph_vss_all(), IGRAPH_ALL, IGRAPH_NO_LOOPS);
-  igraph_real_t zero = 0;
-  if (igraph_vector_contains(result,zero))
+  //first check if graph is weakly connected
+  if (!is_connected((which_graph==0 ? &graph : rewired_graph))) {
+    if (which_graph == 0) {
+      cerr<<"Error in myigraph::get_indegrees - Original graph is disconnected"<<endl;  
+      //print_adjacency_matrix(0,&cout);
+    }
     return 1;
+  }
   //now get the in-degree manually
   igraph_vector_fill(result,0);
   igraph_matrix_t m;
   igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
   igraph_matrix_null(&m);
-  igraph_get_adjacency((which_graph==0 ? &graph : &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+  igraph_get_adjacency((which_graph==0 ? &graph : rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
   
   for (unsigned column=0; column < igraph_matrix_ncol(&m); column++) 
     for (unsigned row=0; row < igraph_matrix_nrow(&m); row++) 
       VECTOR(*result)[column] +=MATRIX(m,row,column);    
+    
+  igraph_matrix_destroy(&m);  
   return 0;  
 }
 
-int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
-    igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
-    igraph_vector_null(result);  
+int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {    
+    igraph_vector_fill(result,0);  
     //which_graph: 0 for original graph, 1 for the rewired
     /*the idea is to create a new temporary graph from the adjacency matrix of this.graph,
      and calculate the eigenvector centralities from there*/
     //get the adjacency matrix
+    //first check if graph is weakly connected
+    if (!is_connected((which_graph==0 ? &graph : rewired_graph))) {
+      if (which_graph == 0) {
+	cerr<<"Error in myigraph::get_indegrees - Original graph is disconnected"<<endl;  
+	//print_adjacency_matrix(0,&cout);
+      }
+      return 1;
+    }   
     igraph_matrix_t m;
     igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
     igraph_matrix_null(&m);
-    igraph_get_adjacency((which_graph==0 ? &graph : &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
+    igraph_get_adjacency((which_graph==0 ? &graph : rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);    
     igraph_t temp_g;
     igraph_weighted_adjacency(&temp_g,&m,IGRAPH_ADJ_DIRECTED,"importance",true);
     /*get the edge attributes*/
@@ -580,19 +645,27 @@ void myigraph::rewire_edges(unsigned long seed) {
     for (long int c=0; c<igraph_matrix_ncol(&original_adj_matrix); c++) {
       long nedges = MATRIX(original_adj_matrix,r,c);
       while (nedges) {
-	long int row_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
-	long int col_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	long int row_idx = 0, col_idx = 0;
+	while (row_idx == col_idx) {	
+	  row_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	  col_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	}
 	MATRIX(rewired_adj_matrix,row_idx,col_idx)++;
 	nedges--;
       }
     }
   }
-  if (rewired)
-     igraph_destroy(&rewired_graph);
-  
-  igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
-  rewired=true;
+  //if (rewired)
+    // igraph_destroy(&rewired_graph);
+  if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+  }
+  rewired_graph = new igraph_t;
+  igraph_weighted_adjacency(rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
   igraph_rng_destroy(&rng);
+  igraph_matrix_destroy(&rewired_adj_matrix);
+  igraph_matrix_destroy(&original_adj_matrix);
 }
 
 /*Weighted random rewiring. Followers are still chosen at random, but
@@ -617,19 +690,25 @@ void myigraph::rewire_edges2(vector<double> probs, unsigned long seed) {
     for (long int c=0; c<igraph_matrix_ncol(&original_adj_matrix); c++) {
       long nedges = MATRIX(original_adj_matrix,r,c);
       while (nedges) {
-	long int row_idx = igraph_rng_get_integer(&rng,0,n_vs-1); //follower
-	long int col_idx = sample_rnd(probs,&rng);//igraph_rng_get_integer(&rng,0,n_vs-1); //leader
+	long int row_idx = 0, col_idx = 0;
+	while (row_idx == col_idx) {
+	  row_idx = igraph_rng_get_integer(&rng,0,n_vs-1); //follower
+	  col_idx = sample_rnd(probs,&rng);//igraph_rng_get_integer(&rng,0,n_vs-1); //leader
+	}
 	MATRIX(rewired_adj_matrix,row_idx,col_idx)++;
 	nedges--;
       }
     }
   }
-  if (rewired)
-     igraph_destroy(&rewired_graph);
-  
-  igraph_weighted_adjacency(&rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true);
-  rewired=true;
+  if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+  }
+  rewired_graph = new igraph_t;
+  igraph_weighted_adjacency(rewired_graph,&rewired_adj_matrix,IGRAPH_ADJ_DIRECTED,"importance",true); 
   igraph_rng_destroy(&rng);
+  igraph_matrix_destroy(&rewired_adj_matrix);
+  igraph_matrix_destroy(&original_adj_matrix);
 }
 
 /*preserve out-degree distribution*/
@@ -652,12 +731,15 @@ void myigraph::rewire_edges3(unsigned long seed) {
       }
    }
    /*now init the rewired graph*/   
-   if (rewired)
-     igraph_destroy(&rewired_graph); 
-   
-   igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
-   rewired=true;
-   igraph_rng_destroy(&rng);
+   //if (rewired) 
+     //igraph_destroy(&rewired_graph);
+  if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+  }
+  rewired_graph = new igraph_t;
+  igraph_adjlist(rewired_graph,&adjlist,IGRAPH_OUT,false);  
+  igraph_rng_destroy(&rng);
 
 }
 
@@ -682,12 +764,15 @@ void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
       }
    }
    /*now init the rewired graph*/   
-   if (rewired)
-     igraph_destroy(&rewired_graph);
-   
-   igraph_adjlist(&rewired_graph,&adjlist,IGRAPH_OUT,false);
-   rewired=true;
-   igraph_rng_destroy(&rng);  
+   //if (rewired)
+     //igraph_destroy(&rewired_graph);
+  if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+  }
+  rewired_graph = new igraph_t;   
+  igraph_adjlist(rewired_graph,&adjlist,IGRAPH_OUT,false);  
+  igraph_rng_destroy(&rng);  
 }
 /*preserve in-degree and out-degree distribution*/
 void myigraph::rewire_edges5() {
@@ -757,8 +842,12 @@ void myigraph::rewire_edges5() {
     }
     
    myigraph dummy_graph(&weighted_adj_matrix);
-   igraph_copy(&rewired_graph,&dummy_graph.graph);  
-   rewired=true;
+   if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+   }
+   rewired_graph = new igraph_t;
+   igraph_copy(rewired_graph,&dummy_graph.graph);    
    igraph_rng_destroy(&rng);
   }
 
@@ -815,7 +904,7 @@ void myigraph::print_adjacency_matrix(int which_graph, ostream *out) {
     igraph_matrix_t m;
     igraph_matrix_init(&m,igraph_matrix_nrow(&weighted_adj_matrix),igraph_matrix_ncol(&weighted_adj_matrix));
     igraph_matrix_null(&m);
-    igraph_get_adjacency((which_graph==0 ? &graph: &rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);        
+    igraph_get_adjacency((which_graph==0 ? &graph: rewired_graph),&m,IGRAPH_GET_ADJACENCY_BOTH,false);        
     *out<<";";
     for (unsigned i=0; i<igraph_matrix_nrow(&weighted_adj_matrix); i++) 
       *out<<i<<";";
@@ -833,8 +922,10 @@ void myigraph::print_adjacency_matrix(int which_graph, ostream *out) {
 
 myigraph::~myigraph() {  
     igraph_destroy(&graph);    
-    if (rewired)
-      igraph_destroy(&rewired_graph);
+    if (rewired_graph != NULL) {
+      igraph_destroy(rewired_graph);
+      delete rewired_graph;
+    }
     igraph_adjlist_destroy(&adjlist);
     igraph_matrix_destroy(&weighted_adj_matrix);    
   

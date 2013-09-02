@@ -4,14 +4,14 @@ library(stats)
 library(nortest)
 library(igraph)
 
-year=2009
+year=2008
 
-directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/",year,sep="")
+directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_3/",year,sep="")
 
 setwd(directory)
 
-original=paste("indegree_original_",year,".dat",sep="")
-shuffled=paste("indegree_shuffled_",year,".dat",sep="")
+original=paste("eigenvector_original_",year,".dat",sep="")
+shuffled=paste("eigenvector_shuffled_",year,"_model-5.dat",sep="")
 
 eigenvector.original = read.table(original)
 eigenvector.original = sort(eigenvector.original[,2],decreasing=TRUE)
@@ -73,15 +73,15 @@ for (r in 1:nrow(eigenvector.shuffled.matrix.sorted)) {
 }
 
 points.pch = ifelse(p.values<0.05,16,4)
-CairoPDF(file="lf-network-model-1.pdf",width=12,height=10)
-plot(X,eigenvector.original,type="o",ylim=c(0,6),lwd=3,cex=2,
+CairoPDF(file="lf-network-model-5.pdf",width=12,height=10)
+plot(X,eigenvector.original,type="o",ylim=c(0,1),lwd=3,cex=2,
      pch=points.pch,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
      cex.lab=2)
 polygon(x=c(X,rev(X)),
         y=c(yminus,rev(yplus)),
         col=rgb(0/255,0/255,255/255,alpha=0.3,maxColorValue=1),border=NA)
 lines(X,ymedian,type="o",col="blue",lwd=3,cex=2,pch=4)
-legend("topright","Model 1",cex=3)
+legend("topright","Model 5",cex=3)
 dev.off()
 
 _#now assortativity
