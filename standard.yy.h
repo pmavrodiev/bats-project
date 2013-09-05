@@ -209,6 +209,9 @@ void yyfree (void *  );
 
 /* Begin user sect3 */
 
+#define yywrap(n) 1
+#define YY_SKIP_YYWRAP
+
 extern int yylineno;
 
 extern char *yytext;
@@ -216,21 +219,24 @@ extern char *yytext;
 
 #ifdef YY_HEADER_EXPORT_START_CONDITIONS
 #define INITIAL 0
-#define BOX_OCCUPATION 1
-#define BOX_OCCUPATION_DEADLINE 2
-#define BOX_INSTALLATION 3
-#define BOX_OCCUP_BATS 4
-#define COMMENT 5
-#define BATS 6
-#define TRANSPONDERS 7
-#define BOX_PROGRAMMING 8
-#define INSIDE_BOX_PROGRAMMING 9
-#define INSIDE_BOX_OCCUP_BATS 10
-#define BATUPDATE 11
-#define LFDELAY 12
-#define OCCUPATIONDEADLINE 13
-#define YEAR 14
-#define EXPORTDATABASE 15
+#define BOX_DETAILED_OCCUPATION 1
+#define INSIDE_DETAILED_BOX_OCCUPATION 2
+#define BOX_OCCUPATION 3
+#define BOX_OCCUPATION_DEADLINE 4
+#define BOX_INSTALLATION 5
+#define BOX_OCCUP_BATS 6
+#define COMMENT 7
+#define BATS 8
+#define TRANSPONDERS 9
+#define BOX_PROGRAMMING 10
+#define INSIDE_BOX_PROGRAMMING 11
+#define INSIDE_BOX_OCCUP_BATS 12
+#define BATUPDATE 13
+#define LFDELAY 14
+#define OCCUPATIONDEADLINE 15
+#define YEAR 16
+#define EXPORTDATABASE 17
+#define CENTRALITY 18
 
 #endif
 
@@ -339,9 +345,9 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 494 "scanner.lex"
+#line 556 "scanner.lex"
 
 
-#line 346 "standard.yy.h"
+#line 352 "standard.yy.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */
