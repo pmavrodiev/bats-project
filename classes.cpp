@@ -16,8 +16,6 @@ using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
 extern map<string,vector<string> > box_programming;
-extern tm start_exp;
-extern tm end_exp;
 /* ======================== CLASS DEFINITIONS ========================== */
 
 
@@ -121,7 +119,7 @@ Box::Box() {
 }
 void Box::print() {
   set<BatEntry,batEntryCompare>::iterator i;
-  std::cout<<"Box "<<name<<" "<<activity.size()<<" Occ. Date "<<to_simple_string(occupiedWhen)<<std::endl;
+  std::cout<<"Box "<<name<<" "<<activity.size()<<" Occupation Date "<<to_simple_string(occupiedWhen)<<std::endl;
   for (i=activity.begin(); i != activity.end(); i++) {
     i->print(&cout);
   }
@@ -343,6 +341,40 @@ bool Bat::insert_pair(Lf_pair lfp) {
   }
   return false;
 }
+
+/*gets the "status" of a bat for a given box boxname
+ * Return Values:
+  1 - the bat led and occupied this box
+  2 - the bat led but did not occuppy this box
+  3 - the bat did not lead and did not occupy this box
+  4 - the bat did not lead and occupied the box
+*/    
+short Bat::get_lead_occuppied_status(string boxname) {
+  bool occuppied=false, led=false;
+  if (find(occuppied_boxes.begin(),occuppied_boxes.end(),boxname) != occuppied_boxes.end())
+    occuppied=true;
+
+  for (unsigned i=0; i<my_lfpairs.size(); i++) {
+    //sanity check
+    if (this->hexid != my_lfpairs[i].leader->hexid)
+      cerr<<endl<<"Error in Bat::led_to_box() - bat id and leader id do not match."<<endl;
+    if (my_lfpairs[i].box_name == boxname) {
+      led=true;
+      break;
+    }      
+  }
+  if (led && occuppied)
+    return 1;
+  else if (led && !occuppied)
+    return 2;
+  else if (!led && !occuppied)
+    return 3;
+  else if (!led && occuppied)
+    return 4;
+  
+  return -1;
+}
+    
     
 void Bat::add_movement(ptime Time, Box * box_ptr) {
   pair<ptime,Box*> entry(Time,box_ptr);

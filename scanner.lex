@@ -55,12 +55,14 @@ extern time_duration lf_delay;
 extern string occupation_deadline;
 extern string Year;
 extern short centrality;
-extern bool create_sqlitedb;
+extern bool create_sqlitedb, rewire_random_models;
+extern string colony;
 int comment_caller;
 %}
 
 DIGIT [0-9]
 HEXDIGIT [a-fA-F0-9]
+BOXDIGIT [a-zA-Z0-9]
 LETTER [a-zA-Z]
 %x BOX_DETAILED_OCCUPATION
 %x INSIDE_DETAILED_BOX_OCCUPATION
@@ -80,6 +82,8 @@ LETTER [a-zA-Z]
 %x YEAR
 %x EXPORTDATABASE
 %x CENTRALITY
+%x REWIRE
+%x COLONY
 %%
 "begin{detailed_box_occupation}"	BEGIN(BOX_DETAILED_OCCUPATION);
 "begin{exportdatabase}"	BEGIN(EXPORTDATABASE);
@@ -95,6 +99,8 @@ LETTER [a-zA-Z]
 "begin{box_programming}" {current_programmed_box="";BEGIN(BOX_PROGRAMMING);}
 "begin{box_occup_bats}" {current_occup_box="";BEGIN(BOX_OCCUP_BATS);}
 "begin{centrality}"	BEGIN(CENTRALITY);
+"begin{rewiring}"	BEGIN(REWIRE);
+"begin{colony}"		BEGIN(COLONY);
 <*>"end{detailed_box_occupation}" BEGIN(INITIAL);
 <EXPORTDATABASE>"end{exportdatabase}" BEGIN(INITIAL);
 <YEAR>"end{year}" BEGIN(INITIAL);
@@ -109,6 +115,14 @@ LETTER [a-zA-Z]
 <LFDELAY>"end{lf_delay}" BEGIN(INITIAL);
 <OCCUPATIONDEADLINE>"end{occupation_deadline}" BEGIN(INITIAL);
 <CENTRALITY>"end{centrality}"  BEGIN(INITIAL);
+<REWIRE>"end{rewiring}"	BEGIN(INITIAL);
+<COLONY>"end{colony}"	BEGIN(INITIAL);
+
+<COLONY>{LETTER}+{DIGIT}* {
+  pch = strtok(yytext,".");
+  colony = pch;
+}
+
 
 <EXPORTDATABASE>{DIGIT}{1} {
   string ss;
@@ -193,6 +207,22 @@ LETTER [a-zA-Z]
   ss>>centrality;
 }
 
+<REWIRE>{DIGIT}{1} {
+  pch=strtok(yytext,".");
+  string temp = pch;
+  if (!temp.compare("0")) {
+    rewire_random_models = false;
+  }
+  else if (!temp.compare("1")) {
+    rewire_random_models = true;
+  }
+  else {
+    cerr<<"Unrecognized value in rewiring block: "<<temp<<". Default value of 0 assumed."<<endl;
+    rewire_random_models = false;
+  }
+}
+
+
 <YEAR>{DIGIT}{4} {
   pch=strtok(yytext,".");
   Year = pch;
@@ -241,7 +271,7 @@ LETTER [a-zA-Z]
   //bats_vector.push_back(bat_hexid);
 }
  
-<BOX_OCCUPATION_DEADLINE>{DIGIT}+{LETTER}+ {  
+<BOX_OCCUPATION_DEADLINE>{BOXDIGIT}{1,5} {  
   pch = strtok(yytext,".");
   box_name = pch;  
 } 
@@ -254,7 +284,7 @@ LETTER [a-zA-Z]
  
  
 
-<BOX_OCCUPATION>{DIGIT}+{LETTER}+ {  
+<BOX_OCCUPATION>{BOXDIGIT}{1,5} {  
   pch = strtok(yytext,".");
   box_name = pch;
   //printf("box: %s\n",box_name.c_str());
@@ -275,7 +305,7 @@ LETTER [a-zA-Z]
   box_occupation[box_name] =  occupation_time;
 }
 
-<BOX_INSTALLATION>{DIGIT}+{LETTER}+ {  
+<BOX_INSTALLATION>{BOXDIGIT}{1,5} {  
   pch = strtok(yytext,".");
   box_installation_name = pch;
   //printf("box: %s\n",box_name.c_str());
@@ -429,6 +459,32 @@ LETTER [a-zA-Z]
 
 }
 
+{DIGIT}{2}":"{DIGIT}{2}  {
+  pch = strtok(yytext,":");
+  Time = pch;
+  pch = strtok(NULL,":");
+  Time += pch;  
+  Time += "00";
+
+  Date += "T" + Time; //20020131T235959
+  //printf("Time: %s\n",Date.c_str());
+  
+  if (!HexId.empty()) { //Trovan Unique files
+    //HexId should've been already scanned
+    if (HexId == "000697B587") //this bat was mistakenly recorded in the transponders
+      HexId = "000697B597";
+    entry_pair.first = HexId;
+    entry_pair.second = Date;
+    box_entries.push_back(entry_pair);
+    Date = "";
+    Time = "";
+    HexId = "";
+  }
+
+}
+
+
+
 {HEXDIGIT}{10} {
   HexId = yytext;
   transform( HexId.begin(), HexId.end(),HexId.begin(),::toupper);
@@ -537,9 +593,6 @@ BEGIN(COMMENT);
 }
 <*>"*/" BEGIN(comment_caller);
 
-
-<*>. //{printf("%s",yytext);}/* ignore this token in any start condition*/
-
 <INSIDE_DETAILED_BOX_OCCUPATION>\n|\r|\r\n {
   pair<ptime,vector<string> > newpair(detailed_occupation_time,detailed_box_occupation_bats);
   box_detailed_occupation_vector.push_back(newpair);
@@ -552,6 +605,10 @@ BEGIN(COMMENT);
 <INSIDE_BOX_OCCUP_BATS>\n|\r|\r\n {BEGIN(BOX_OCCUP_BATS);}
 
 <*>\n|\r|\r\n //{printf("%s",yytext);}/*ignore this token in any start condition*/
+
+
+<*>. {printf("%s",yytext);}/* ignore this token in any start condition*/
+
 
 %%
 

@@ -188,7 +188,7 @@ private:
     bool operator()(Lf_pair l1, Lf_pair l2) const;
   };  
 public:   
-    short type; //0-control, 1-minority, 2-majority, 3-all
+    short type; //0-control, 1-minority, 2-majority, 3-all, 4 - heat box
     string name;
     set<BatEntry,batEntryCompare> activity;
     BoxStatus status; //has this box been discovered or not
@@ -293,6 +293,7 @@ public:
     map<string,ptime> first_reading; 
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
+    vector<string> occuppied_boxes; //which boxes have been occupied. takes the name of the box
     vector<event> my_revisits;
     /*last_revisit: misc variable used when identifying the revisits
      box_name -> last_revisit*/
@@ -300,6 +301,16 @@ public:
     //amother misc variable, used when identifying the revisits
     ptime last_seen; //default constructor is not_a_date_time
     bool insert_pair(Lf_pair lfp);    //true if pair is inserted, false otherwise
+    //bool led_to_box(string boxname); //did this bat ever lead to box boxname
+    /*gets the "status" of a bat for a given box boxname
+     * Return Values:
+     1 - the bat led and occupied this box
+     2 - the bat led but did not occuppy this box
+     3 - the bat did not lead and did not occupy this box
+     4 - the bat did not lead and occupied the box
+     -1 - something got fucked
+     */    
+    short get_lead_occuppied_status(string boxname);
     void add_movement(ptime Time, Box * box_ptr);
     //make the bat informed
     void make_informed(string box_name,ptime informed_time);

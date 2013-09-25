@@ -2,10 +2,6 @@
 /*verbose flag*/
 bool verbflag=false;
 	
-/*start of experiment*/
-
-//tm start_exp = to_tm(ptime(from_iso_string("20080505T000000"))); //05.05.2008
-tm end_exp   = to_tm(ptime(from_iso_string("20080926T000000"))); //26.09.2008
 
 map<string,ptime> box_occupation;
 map<string,ptime> box_installation;
@@ -17,6 +13,10 @@ map<string,string> short_to_long; //maps short to long bat hex ids
 string Year;
 /*how is centrality calculated*/
 short centrality = -1;
+/*should we rewire the random models or not. default is false*/
+bool rewire_random_models = false;
+/*which colony are we analysing*/
+string colony = "GB2";
 /*the minimum amount of time between two consequtive recordings above which the recordings are considered disjoint, i.e. analysed
   separately*/
 time_duration roundtrip_time;// = minutes(3);
@@ -520,5 +520,5 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 /*output files*/
 string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader,lf_valid_time_diff_viz;
 string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
-string combined_networks,time_to_occupy;
+string combined_networks,time_to_occupy,leading_following_statistics,leading_following_statistics_detailed;
 /* ==================================================================== */

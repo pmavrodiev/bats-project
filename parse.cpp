@@ -501,6 +501,7 @@ void initBoxes(const char* dirname) {
     struct dirent *ent;
     struct stat st;
     string all_box("100"), majority_box("66"),minority_box("33"), control_box("0"),majority_box2("67");
+    string heat_box("h");
     unsigned count=0;
     dir = opendir (dirname);
     if (dir != NULL) {
@@ -522,8 +523,8 @@ void initBoxes(const char* dirname) {
 		    string new_date = tmp.substr(0,tmp.length()-6) + box_occupation_deadline[dir_entry];		    
 		    occupation_time = ptime(from_iso_string(new_date));
 		}
-                if (dir_entry.find(all_box) != string::npos) {
-                    Box b(3,dir_entry,occupation_time,ref_installation);		    
+                if (dir_entry.find(heat_box) != string::npos) {
+                    Box b(4,dir_entry,occupation_time,ref_installation);		    
 		    boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
@@ -537,6 +538,12 @@ void initBoxes(const char* dirname) {
                 }
                 else if (dir_entry.find(minority_box) != string::npos) {
                     Box b(1,dir_entry,occupation_time,ref_installation);
+                    boxes[dir_entry] = b;
+                    boxes_auxillary[dir_entry] = count;
+                    boxes_auxillary_reversed[count++]=dir_entry;
+                }
+                else if (dir_entry.find(all_box) != string::npos) {
+                    Box b(3,dir_entry,occupation_time,ref_installation);
                     boxes[dir_entry] = b;
                     boxes_auxillary[dir_entry] = count;
                     boxes_auxillary_reversed[count++]=dir_entry;
@@ -563,8 +570,8 @@ void initBoxes(const char* dirname) {
 void processDataDirectory(string dir_name,string box_name) {
     DIR *data_dir;
     struct dirent *ent;
-
-    cout<<"Entering "<<dir_name<<endl;
+    Box *targetBox = &boxes[box_name];
+    cout<<"Entering "<<dir_name<<"  ->  box type "<<targetBox->type<<endl;;
     data_dir = opendir (dir_name.c_str());
     short file_counter = 0;
     if (data_dir != NULL) {
@@ -591,7 +598,7 @@ void processDataDirectory(string dir_name,string box_name) {
                 counter ++;
                 file_counter ++;
                 /*PROCESS THE CONTENTS OF EACH DATA FILE*/
-                Box *targetBox = &boxes[box_name];
+
                 for (unsigned i=0; i<box_entries.size(); i++) {
                     /*is the given transpoder id a bat?*/
                     if (bats_map.find(box_entries[i].first) == bats_map.end()) {                        
@@ -672,7 +679,7 @@ int main(int argc, char**argv) {
 	fclose(yyin);
         /*init the output files*/
         stringstream ss5;
-	string outdir="output_files_new_2/"+Year;
+	string outdir="output_files_new_2/"+Year+"_"+colony;
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
 	ss5.str(string());
@@ -708,7 +715,13 @@ int main(int argc, char**argv) {
 	ss5.str(string());
 	ss5<<"output_files_new_2/combined_networks.txt";
 	combined_networks = ss5.str();
-	cout<<combined_networks<<endl;	
+	ss5.str(string());
+	ss5<<outdir<<"/leading_following_statistics.dat";
+	leading_following_statistics = ss5.str();	
+	ss5.str(string());
+	ss5<<outdir<<"/leading_following_statistics_detailed.dat";
+	leading_following_statistics_detailed = ss5.str();
+	ss5.str(string());
 	/***********************/
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();	
@@ -776,7 +789,7 @@ int main(int argc, char**argv) {
         DIR *dir;
         struct dirent *ent;
         string all_box("100"), majority_box("66"),minority_box("33"), control_box("0"),majority_box2("67");
-
+	string heat_box("h");
         dir = opendir(base_dir);
         if (dir != NULL) {
             while ((ent = readdir (dir)) != NULL) {
@@ -788,11 +801,13 @@ int main(int argc, char**argv) {
                 lstat(dir_entry.c_str(), &st);
 
                 if(S_ISDIR(st.st_mode)) {
-                    if (node_name.find(all_box) != string::npos ||
-                            node_name.find(majority_box) != string::npos ||
+		  /*the order in the if-then checks is important */
+                    if (node_name.find(heat_box) != string::npos ||
+                            node_name.find(majority_box)  != string::npos ||
                             node_name.find(majority_box2) != string::npos ||
-                            node_name.find(minority_box) != string::npos ||
-                            node_name.find(control_box) != string::npos) {
+                            node_name.find(minority_box)  != string::npos ||
+                            node_name.find(all_box)       != string::npos ||
+		            node_name.find(control_box)   != string::npos) {
                         //cout<<"Opening "<<dir_entry<<" Box "<<node_name<<endl;
                         processDataDirectory(dir_entry,node_name);
                     }
@@ -819,6 +834,8 @@ int main(int argc, char**argv) {
             //currentBox.print();
             counter += currentBox.activity.size();
             multibats.insert(currentBox.activity.begin(),currentBox.activity.end());
+	    if (currentBox.name == "66d")
+	      currentBox.print();
         }
         cout<<"Total records in all boxes "<<counter<<endl;
         cout<<"\nMULTI BATS "<<multibats.size()<<endl;
@@ -1482,31 +1499,99 @@ int main(int argc, char**argv) {
 	os.close();
 	cout<<"DONE"<<endl;
 	/***********/
-	cout<<"Outputting time to occupation of all bats...";
-	os.open(time_to_occupy.c_str());
-	if (!os.good()) {
-            perror(time_to_occupy.c_str());
-            exit(1);
-        }        
-	for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
-	  Box *b = & i->second;
-	  for (unsigned j=0; j < b->occupyingBats.size(); j++) {
-	    double td;
-	    Bat *bb = b->occupyingBats[j];
-	    tm occupying_time = to_tm(b->occupiedWhen);	    
-	    if (!bb->first_reading[b->name].is_not_a_date_time()) {
-	      tm first_reading = to_tm(bb->first_reading[b->name]);	    
-	      //time_duration td = b->occupiedWhen - bb->first_reading[b->name];
-	      td = difftime(mktime(&occupying_time),mktime(&first_reading)) / 60.0; //in minutes
-	    }
-	    else td = -2;
-	    os<<bb->hexid<<"\t"<<td<<"\t"<<bb->disturbed_in_box[i->first].custom_boolean<<"\t"<<b->name<<endl;
+	//cout<<"Outputting time to occupation of all bats...";
+	//os.open(time_to_occupy.c_str());
+	//if (!os.good()) {
+        //    perror(time_to_occupy.c_str());
+        //    exit(1);
+        //}        
+	//for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
+	//  Box *b = & i->second;
+	//  for (unsigned j=0; j < b->occupyingBats.size(); j++) {
+	//    double td;
+	//    Bat *bb = b->occupyingBats[j];
+	//    tm occupying_time = to_tm(b->occupiedWhen);	    
+	//    if (!bb->first_reading[b->name].is_not_a_date_time()) {
+	//      tm first_reading = to_tm(bb->first_reading[b->name]);	    
+	//      //time_duration td = b->occupiedWhen - bb->first_reading[b->name];
+	//      td = difftime(mktime(&occupying_time),mktime(&first_reading)) / 60.0; //in minutes
+	//    }
+	//    else td = -2;
+	//    os<<bb->hexid<<"\t"<<td<<"\t"<<bb->disturbed_in_box[i->first].custom_boolean<<"\t"<<b->name<<endl;
+	//  }	  
+	//}
+	//cout<<"DONE"<<endl;
+	//os.close();
+	/*************/
+	
+	/***********/
+	/*first populate each bat object with the boxes she has occuppied*/
+        for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
+	  Box *B = &(i->second);
+	  for (unsigned j=0; j<B->occupyingBats.size(); j++) 	     
+	     B->occupyingBats[j]->occuppied_boxes.push_back(i->first);  
+	  
+	}
+        int led_occuppied=0, led_not_occuppied=0,not_led_not_occuppied=0,not_led_occuppied=0;
+        for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
+	  Bat *b = &(i->second);
+	  for (map<string,Box>::iterator j=boxes.begin(); j!=boxes.end(); j++) {
+	    if (j->second.occupiedWhen.is_pos_infinity()) //box never occuppied
+	      continue;	    
+	    short bat_status = b->get_lead_occuppied_status(j->first);
+	    if (bat_status == 1)
+	      led_occuppied++;
+	    else if (bat_status == 2)
+	      led_not_occuppied++;
+	    else if (bat_status == 3)
+	      not_led_not_occuppied++;
+	    else if (bat_status == 4)
+	      not_led_occuppied++;
+	    else 
+	      cerr<<"Error in parse.cpp - Unrecognised return value from Bat.get_lead_occuppied_status()"<<endl;	    
 	  }	  
 	}
+      	cout<<"Outputting leading and occupying statistics ...";
+	os.open(leading_following_statistics.c_str());
+	if (!os.good()) {
+            perror(leading_following_statistics.c_str());
+            exit(1);
+        }
+        os<<"led_occuppied\t"<<led_occuppied<<endl;
+	os<<"led_not_occuppied\t"<<led_not_occuppied<<endl;
+	os<<"not_led_not_occuppied\t"<<not_led_not_occuppied<<endl;
+	os<<"not_led_occuppied\t"<<not_led_occuppied<<endl;
+	os.close();
+	os.open(leading_following_statistics_detailed.c_str());
+	if (!os.good()) {
+            perror(leading_following_statistics_detailed.c_str());
+            exit(1);
+        }
+        os<<"badid    \tled_occuppied  led_not_occuppied  not_led_not_occuppied  not_led_occuppied"<<endl;
+        for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
+	  int led_occuppied2=0, led_not_occuppied2=0,not_led_not_occuppied2=0,not_led_occuppied2=0;
+          Bat *b = &(i->second);
+	  for (map<string,Box>::iterator j=boxes.begin(); j!=boxes.end(); j++) {
+	    if (j->second.occupiedWhen.is_pos_infinity()) //box never occuppied
+	      continue;
+	    short bat_status = b->get_lead_occuppied_status(j->first);
+	    if (bat_status == 1)
+	      led_occuppied2++;
+	    else if (bat_status == 2)
+	      led_not_occuppied2++;
+	    else if (bat_status == 3)
+	      not_led_not_occuppied2++;
+	    else if (bat_status == 4)
+	      not_led_occuppied2++;
+	    else 
+	      cerr<<"Error in parse.cpp - Unrecognised return value from Bat.get_lead_occuppied_status()"<<endl;	    
+	  }
+	  os<<b->hexid<<"\t\t"<<led_occuppied2<<"\t\t"<<led_not_occuppied2<<"\t\t"<<not_led_not_occuppied2<<"\t\t\t"<<not_led_occuppied2<<endl;
+	}
+        
 	cout<<"DONE"<<endl;
 	os.close();
 	/*************/
-	
 	
 	/*****************************************************/
         /*store the number of leading events that a leader has taken part of,
@@ -1700,7 +1785,7 @@ int main(int argc, char**argv) {
 	     graphmlfile<<"<node id = \"n"<<bat_id2matrix_id[i->second]<<"\">"<<endl<<"<data key=\"d0\">"<<endl;
 	     graphmlfile<<"<Label>"<<i->first.substr(i->first.length()-4,4)<<"</Label>"<<endl;
 	     graphmlfile<<"</data>"<<endl;
-	     graphmlfile<<"<data key=\"d2\">http://lifestyle.ibox.bg/news/id_1768910611"<<endl;	    
+	     graphmlfile<<"<data key=\"d2\">"<<endl;	    
 	     graphmlfile<<"<centrality>"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<"</centrality>"<<endl;	    
 	     graphmlfile<<"</data>\n</node>"<<endl;
 	 }
@@ -1723,10 +1808,11 @@ int main(int argc, char**argv) {
 	     cout<<b.hexid<<"\t"<<probs[bat_id2matrix_id[i->second]]<<endl;
 	   }
 	  /**/
-	 ofstream centrfile_shuffled;
-	 igraph_vector_t rewired_centralities;
-	 igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
-	 for (unsigned kk=0; kk<1000; kk++) {
+	 if (rewire_random_models) { 
+	  ofstream centrfile_shuffled;
+	  igraph_vector_t rewired_centralities;
+	  igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	  for (unsigned kk=0; kk<1000000; kk++) {
 	    //cout<<kk<<endl;
 	     stringstream centr_shuffled;
 	     /*MODEL 1*/
@@ -1871,11 +1957,11 @@ int main(int argc, char**argv) {
 	      }
 	      //centrfile_shuffled<<"MODEL 5 - "<<my_graph.get_sum_degrees(my_graph.rewired_graph)<<endl;
 	      centrfile_shuffled.close();      
+	    }
+	    igraph_vector_destroy(&rewired_centralities);
+	    centrfile_shuffled.close();	  
+	    cout<<"DONE"<<endl;
 	  }
-	  igraph_vector_destroy(&rewired_centralities);
-	  centrfile_shuffled.close();
-	  
-	  cout<<"DONE"<<endl;
 	  /***/
 	  /*calculate assortativity*/
 	  stringstream assortativity;
@@ -1894,7 +1980,7 @@ int main(int argc, char**argv) {
 	  stringstream assortativity_shuffled;
 	  assortativity_shuffled<<"assortativity/"<<Year<<"_shuffled.txt";
 	  ofstream assort_shuffled(assortativity_shuffled.str().c_str(),ios::trunc);	
-	  for (unsigned tt=0; tt<1000; tt++) {
+	  for (unsigned tt=1000; tt<1000; tt++) {
 	      my_graph.rewire_edges3(rand());	    
 	      //for the 2007 data use igraph_rewire_edges
 	      //igraph_rewire_edges(&shuff_graph,1,false,true);

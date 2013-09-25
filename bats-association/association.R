@@ -1,7 +1,7 @@
 library(RMySQL)
 
 #for year 2008
-Year=2010
+Year=2008
 control.boxes = as.character(c( 
   10001,
   10002,
@@ -52,7 +52,7 @@ colnames(mat.all.same.date.boxes) = unique.bats[,1]
 rownames(mat.different.boxes.same.date) = unique.bats[,1]
 colnames(mat.different.boxes.same.date) = unique.bats[,1]
 
-#query how many times each pair of bats have been detected on the same date but not
+#query how many times each pair of bats has been detected on the same date but not
 #necessarily in the same box
 for (b1 in 1:(length(unique.bats[,1])-1)) {
   for (b2 in (b1+1):length(unique.bats[,1])) {
@@ -67,7 +67,7 @@ for (b1 in 1:(length(unique.bats[,1])-1)) {
 
 
 #
-rs = dbSendQuery(db,"SELECT fin_date FROM Findings where fin_date>\"",Year,"-05-05\" and fin_date<\"",Year,"-31-12\" group by fin_date ORDER BY fin_date  ASC")
+rs = dbSendQuery(db,paste("SELECT fin_date FROM Findings where fin_date>\"",Year,"-05-05\" and fin_date<\"",Year,"-31-12\" group by fin_date ORDER BY fin_date  ASC",sep=""))
 unique.dates = fetch(rs,n=-1)
 
 for (date in unique.dates[,1]) {

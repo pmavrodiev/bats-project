@@ -4,9 +4,10 @@ library(stats)
 library(nortest)
 library(igraph)
 
-year=2008
+year=2007
+colony="_BS"
 
-directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_3/",year,sep="")
+directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/",year,colony,sep="")
 
 setwd(directory)
 
@@ -37,31 +38,31 @@ if (length(remove.idx)>0)
     eigenvector.shuffled.matrix.sorted[,-remove.idx]
 ####
 yminus = apply(eigenvector.shuffled.matrix.sorted.cleaned,1,
-               quantile,c(0.025,0.975))[1,]
+               quantile,c(0.025,0.95))[1,]
 
 yplus = apply(eigenvector.shuffled.matrix.sorted.cleaned,1,
-                       quantile,c(0.025,0.975))[2,]
+                       quantile,c(0.025,0.95))[2,]
 
 
 ymedian = apply(eigenvector.shuffled.matrix.sorted.cleaned,1
                 ,median)
 
-
-h0=hist(eigenvector.shuffled.matrix.sorted.cleaned[1,],breaks=50,plot=FALSE)
-plot(h0$mids,h0$counts/sum(h0$counts),type="o")
-
-h=hist(rnorm(1000000,mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,])),breaks=50,plot=FALSE)
-lines(h$mids,h$counts/sum(h$counts),col="blue")
-
-ks.test(eigenvector.shuffled.matrix.sorted.cleaned[1,],"pnorm",mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,]))
-
-shapiro.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-qqnorm(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-ad.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
-
-dlnorm(0.691963,mean(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])),sd(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])))
-
-pnorm(0.385007,mean(eigenvector.shuffled.matrix.sorted.cleaned[2,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[2,]))
+# 
+# h0=hist(eigenvector.shuffled.matrix.sorted.cleaned[1,],breaks=50,plot=FALSE)
+# plot(h0$mids,h0$counts/sum(h0$counts),type="o")
+# 
+# h=hist(rnorm(1000000,mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,])),breaks=50,plot=FALSE)
+# lines(h$mids,h$counts/sum(h$counts),col="blue")
+# 
+# ks.test(eigenvector.shuffled.matrix.sorted.cleaned[1,],"pnorm",mean(eigenvector.shuffled.matrix.sorted.cleaned[1,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[1,]))
+# 
+# shapiro.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# qqnorm(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# ad.test(eigenvector.shuffled.matrix.sorted.cleaned[1,])
+# 
+# dlnorm(0.691963,mean(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])),sd(log(eigenvector.shuffled.matrix.sorted.cleaned[1,])))
+# 
+# pnorm(0.385007,mean(eigenvector.shuffled.matrix.sorted.cleaned[2,]),sd(eigenvector.shuffled.matrix.sorted.cleaned[2,]))
 
 
 
@@ -78,7 +79,8 @@ plot(X,eigenvector.original,type="o",ylim=c(0,1),lwd=3,cex=2,
      pch=points.pch,cex.axis=2,xlab="rank",ylab="eigenvector centrality",
      cex.lab=2)
 polygon(x=c(X,rev(X)),
-        y=c(yminus,rev(yplus)),
+        y=c(ymedian,#yminus,
+            rev(yplus)),
         col=rgb(0/255,0/255,255/255,alpha=0.3,maxColorValue=1),border=NA)
 lines(X,ymedian,type="o",col="blue",lwd=3,cex=2,pch=4)
 legend("topright","Model 5",cex=3)
