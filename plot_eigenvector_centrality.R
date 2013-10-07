@@ -4,8 +4,8 @@ library(stats)
 library(nortest)
 library(igraph)
 
-year=2007
-colony="_BS"
+year=2008
+colony="_GB2"
 
 directory = paste("/home/pmavrodiev/Documents/bats/result_files/output_files_new_2/",year,colony,sep="")
 

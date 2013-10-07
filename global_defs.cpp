@@ -1,6 +1,10 @@
 /* ======================== GLOBAL DEFINITIONS ======================= */
+
+/*remove this, only temp*/
+//set<string> unique_strings;
+
 /*verbose flag*/
-bool verbflag=false;
+bool verbflag=true;
 	
 
 map<string,ptime> box_occupation;
