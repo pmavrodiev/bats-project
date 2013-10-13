@@ -357,11 +357,13 @@ public:
   void rewire_edges(unsigned long seed);
   void rewire_edges2(vector<double> probs,unsigned long seed);
   void rewire_edges3(unsigned long seed);
-  void rewire_edges4(vector<double> probs,unsigned long seed);
-  void rewire_edges5();
+  void rewire_edges4(unsigned long seed);
+  void rewire_edges5(vector<double> probs,unsigned long seed);
+  void rewire_edges6(unsigned long seed);
   //this is just a dispatch method, which calls the right rewiwiring procedure
   void rewire_random_model(short model,vector<double> *probs);
   void print_adjacency_matrix(int which_graph, ostream *out);
+  void print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
   ~myigraph();
   

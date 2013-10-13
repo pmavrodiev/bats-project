@@ -496,6 +496,7 @@ int assortativity_map::avg_neighbour_connectivity(igraph_vector_t *indegrees,
 }  
 
 
+
 myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     long nrow = igraph_matrix_nrow(adjmatrix);
     long ncol = igraph_matrix_ncol(adjmatrix);
@@ -592,7 +593,7 @@ int myigraph::get_indegrees(igraph_vector_t *result,int which_graph) {
       //print_adjacency_matrix(0,&cout);
     }
     return 1;
-  }
+  }  
   //now get the in-degree manually
   igraph_vector_fill(result,0);
   igraph_matrix_t m;
@@ -660,7 +661,7 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
 void myigraph::rewire_edges(unsigned long seed) {   
    //igraph_copy(&rewired_gaph,&graph);
    //igraph_rewire_edges(&rewired_graph,1.0,/*loops=*/false,/*multiple edges=*/true);  
-  //init the random number generators
+  //init the random number generators  
   igraph_rng_t rng;   
   igraph_rng_init(&rng,&igraph_rngtype_mt19937);
   igraph_rng_seed(&rng,seed); 
@@ -681,6 +682,7 @@ void myigraph::rewire_edges(unsigned long seed) {
 	while (row_idx == col_idx) {	
 	  row_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
 	  col_idx = igraph_rng_get_integer(&rng,0,n_vs-1);
+	  //cout<<row_idx<<"\t"<<col_idx<<endl;
 	}
 	MATRIX(rewired_adj_matrix,row_idx,col_idx)++;
 	nedges--;
@@ -749,18 +751,22 @@ void myigraph::rewire_edges3(unsigned long seed) {
    igraph_rng_t rng;
    //igraph_rngtype_mt19937 rng_type;
    igraph_rng_init(&rng,&igraph_rngtype_mt19937);
-   igraph_rng_seed(&rng,seed); 
+   igraph_rng_seed(&rng,seed);    
    /**/
-   long n_vs = igraph_adjlist_size(&adjlist);
+   //get the adjacency list of the empirical graph
+   igraph_adjlist_t adjlist_empirical;
+   igraph_adjlist_init(&graph,&adjlist_empirical,IGRAPH_OUT);
+   /**/
+   long n_vs = igraph_adjlist_size(&adjlist_empirical);
    for (long vid=0; vid<n_vs; vid++) {
     //the neighbours of vid from the adjacency list
-      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist_empirical,vid);
       for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
 	long random_number = vid;
 	while (random_number == vid)
 	  random_number=igraph_rng_get_integer(&rng,0,n_vs-1);	
 	VECTOR(*vid_ptr)[neighbours] = random_number;
-      }
+      }      
    }
    /*now init the rewired graph*/   
    //if (rewired) 
@@ -768,15 +774,49 @@ void myigraph::rewire_edges3(unsigned long seed) {
   if (rewired_graph != NULL) {
     igraph_destroy(rewired_graph);
     delete rewired_graph;  
-  }
+  }  
   rewired_graph = new igraph_t;
-  igraph_adjlist(rewired_graph,&adjlist,IGRAPH_OUT,false);  
+  igraph_adjlist(rewired_graph,&adjlist_empirical,IGRAPH_OUT,false);  
+  igraph_adjlist_destroy(&adjlist_empirical);  
   igraph_rng_destroy(&rng);
+}
 
+/*preserve in-degree distribution*/
+void myigraph::rewire_edges4(unsigned long seed) {  
+   //init the random number generators
+   igraph_rng_t rng;
+   //igraph_rngtype_mt19937 rng_type;
+   igraph_rng_init(&rng,&igraph_rngtype_mt19937);
+   igraph_rng_seed(&rng,seed);    
+   /**/
+   //get the adjacency list of the empirical graph
+   igraph_adjlist_t adjlist_empirical;
+   igraph_adjlist_init(&graph,&adjlist_empirical,IGRAPH_IN);
+   /**/
+   long n_vs = igraph_adjlist_size(&adjlist_empirical);
+   for (long vid=0; vid<n_vs; vid++) {
+    //the neighbours of vid from the adjacency list
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist_empirical,vid);
+      for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
+	long random_number = vid;
+	while (random_number == vid)
+	  random_number=igraph_rng_get_integer(&rng,0,n_vs-1);
+	VECTOR(*vid_ptr)[neighbours] = random_number;
+      }      
+   }
+   /*now init the rewired graph*/   
+  if (rewired_graph != NULL) {
+    igraph_destroy(rewired_graph);
+    delete rewired_graph;  
+  }  
+  rewired_graph = new igraph_t;
+  igraph_adjlist(rewired_graph,&adjlist_empirical,IGRAPH_IN,false);  
+  igraph_adjlist_destroy(&adjlist_empirical);  
+  igraph_rng_destroy(&rng);
 }
 
 /*preserve out-degree distribution with weighted leaders proportionate to activity*/
-void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
+void myigraph::rewire_edges5(std::vector< double > probs, unsigned long seed) {
    //init the random number generators
    igraph_rng_t rng;   
    igraph_rng_init(&rng,&igraph_rngtype_mt19937);      
@@ -806,28 +846,51 @@ void myigraph::rewire_edges4(std::vector< double > probs, unsigned long seed) {
   igraph_adjlist(rewired_graph,&adjlist,IGRAPH_OUT,false);  
   igraph_rng_destroy(&rng);  
 }
+
 /*preserve in-degree and out-degree distribution*/
-void myigraph::rewire_edges5() {
+void myigraph::rewire_edges6(unsigned long seed) {
     bool repeat = true;
     //init the random number generators
     igraph_rng_t rng;
     //igraph_rngtype_mt19937 rng_type;
     igraph_rng_init(&rng,&igraph_rngtype_mt19937);
-    igraph_rng_seed(&rng,time(0)*1000); //current time in milliseconds
+    igraph_rng_seed(&rng,seed);    
+    //get the adjacency list of the empirical graph
+    igraph_adjlist_t adjlist_empirical_outdegree, adjlist_empirical_indegree;
+    igraph_adjlist_init(&graph,&adjlist_empirical_outdegree,IGRAPH_OUT);
+    igraph_adjlist_init(&graph,&adjlist_empirical_indegree,IGRAPH_IN);
     /**/
-    long n_vs = igraph_adjlist_size(&adjlist);
+    long n_vs = igraph_adjlist_size(&adjlist_empirical_outdegree);
     while (repeat) {
       /*auxillary structures*/
       map<long,int> in_degree, out_degree;
       for (long vid=0; vid<n_vs; vid++) {
 	//the neighbours of vid from the adjacency list
-	igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist,vid);
-	if (igraph_vector_size(vid_ptr) == 0) continue;
-	out_degree[vid] = igraph_vector_size(vid_ptr);      
-	for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {
+	igraph_vector_t *vid_ptr = igraph_adjlist_get(&adjlist_empirical_outdegree,vid);
+	igraph_vector_t *vid_ptr_indegree = igraph_adjlist_get(&adjlist_empirical_indegree,vid);
+	if (igraph_vector_size(vid_ptr) != 0)
+	  out_degree[vid] = igraph_vector_size(vid_ptr);
+	if (igraph_vector_size(vid_ptr_indegree) != 0)
+	  in_degree[vid] = igraph_vector_size(vid_ptr_indegree);
+	/*
+	for (long neighbours=0; neighbours<igraph_vector_size(vid_ptr); neighbours++) {	  
 	  in_degree[VECTOR(*vid_ptr)[neighbours]]++;
 	}
+	*/
+	
+      }      
+      /*delme*/
+      /*
+      cout<<"empirical indegrees"<<endl;
+      for (map<long,int>::iterator bbb=in_degree.begin(); bbb!=in_degree.end(); bbb++) {
+	cout<<bbb->first<<"\t"<<bbb->second<<endl;
       }
+      cout<<"empirical outdegrees"<<endl;
+      for (map<long,int>::iterator bbb=out_degree.begin(); bbb!=out_degree.end(); bbb++) {
+	cout<<bbb->first<<"\t"<<bbb->second<<endl;
+      } 
+      */
+      /*******/
       /*start the real work*/
       igraph_matrix_fill(&weighted_adj_matrix,0); //init the adjacency matrix   
       /*select the sources and destinations of the edges*/
@@ -839,8 +902,9 @@ void myigraph::rewire_edges5() {
 	long tmp = source;
 	while (tmp-- != 0) 
 	  itr_src++;                     
-	long tmp2 = itr_src->first;      
+	long tmp2 = itr_src->first; //this is the id of the selected vertex 
 	map<long,int>::iterator itr_dst;
+	//unsuccessful allocation -> start over
 	if (in_degree.size() == 1 && out_degree.size() == 1 &&
 	  itr_src->first == in_degree.begin()->first) {
 	  repeat = true;
@@ -881,33 +945,28 @@ void myigraph::rewire_edges5() {
    rewired_graph = new igraph_t;
    igraph_copy(rewired_graph,&dummy_graph.graph);    
    igraph_rng_destroy(&rng);
+   igraph_adjlist_destroy(&adjlist_empirical_outdegree);
+   igraph_adjlist_destroy(&adjlist_empirical_indegree);
+   //this->print_adjacency_list(1,&cout);
   }
 
 void myigraph::rewire_random_model(short int model, vector<double> *probs) {
-  if (model == 1) {
-    srand (time(NULL));
-    rewire_edges(rand());
-  }
-  else if (model == 2) {
-    srand (time(NULL));
-    rewire_edges2(*probs,rand());
-  }
-  else if (model == 3) {
-    srand (time(NULL));
+  if (model == 1) 
+    rewire_edges(rand());  
+  else if (model == 2)    
+    rewire_edges2(*probs,rand());  
+  else if (model == 3)
     rewire_edges3(rand());
-  }
-  else if (model == 4) {
-    srand(time(NULL));
-    rewire_edges4(*probs,rand());
-  }
-  else if (model == 5) {
-    rewire_edges5();
-  }
+  else if (model == 4) 
+    rewire_edges4(rand());
+  else if (model == 5)     
+    rewire_edges5(*probs,rand());
+  else if (model == 6) 
+    rewire_edges6(rand());
   else {
     cerr<<"Model "<<model<<" is not implemented"<<endl;
     exit(1);
   }
-
 }
 
 
@@ -927,6 +986,23 @@ long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
     if (found) break;
   }  
   return j-1;
+}
+
+
+/*always the original graph*/
+void myigraph::print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out) {
+    //0 for original graph, 1 for the rewired   
+    igraph_adjlist_t graph_adjlist;
+    igraph_adjlist_init((which_graph == 0 ? &graph : rewired_graph),&graph_adjlist,mode);
+    
+    for (long vid=0; vid < igraph_adjlist_size(&graph_adjlist); vid++) {
+      *out<<vid<<"->";
+      igraph_vector_t *vid_ptr = igraph_adjlist_get(&graph_adjlist,vid);
+      for (long vid_neighbour=0; vid_neighbour<igraph_vector_size(vid_ptr); vid_neighbour++)
+	  *out<<VECTOR(*vid_ptr)[vid_neighbour]<<",";
+      *out<<endl;      
+    }  
+    igraph_adjlist_destroy(&graph_adjlist);
 }
 
 
