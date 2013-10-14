@@ -33,10 +33,12 @@ for (d in dirs) {
   colony=paste("_",s[[1]][6],sep="") # "_GB2"  
   
   original=paste("eigenvector_original_",year,".dat",sep="")
-  CairoPDF(file=paste(year,colony,".pdf",sep=""),width=16,height=10)
-  for (model in 1:6) {
-    
+#   original=paste("indegree_original_",year,".dat",sep="")
+  options(warn=3)
+  for (model in  1:6) { #c(1,2,3,5)) {
     shuffled=paste("eigenvector_shuffled_",year,"_model-",model,".dat.gz",sep="")
+#     shuffled=paste("indegree_shuffled_",year,"_model-",model,".dat.gz",sep="")
+    
     
     eigenvector.original = read.table(original)
     eigenvector.original[,1] = substr(eigenvector.original[,1],7,10)
@@ -72,21 +74,31 @@ for (d in dirs) {
                           y=c(as.numeric(yminus),rev(as.numeric(yplus))),
                           y.median=c(as.numeric(ymedian),rev(as.numeric(ymedian))))
     
-
-    g=ggplot(data=df,aes(x=x.ints,y=y.empirical))+
-        geom_point(size=7,shape=4)+xlab("")+ylab("eigenvector centrality")+
+    CairoPDF(file=paste(year,colony,"-model-",model,".pdf",sep=""),width=16,height=10)
+#     Y.max = max(max(yplus),max(eigenvector.original[,2]))
+    Y.max=1
+    g=ggplot(data=df,aes(x=x.ints,y=y.empirical/Y.max))+
+        geom_point(size=7,shape=4)+xlab("")+
+        ylab("eigenvector centrality")+
+#         ylab("indegree centrality")+
         scale_x_discrete(labels=X.lab)+
         scale_y_continuous(limits=c(0,1))+
-        geom_polygon(data=df_error,mapping=aes(x=x,y=y),fill="blue",alpha=0.4)+
+        geom_polygon(data=df_error,mapping=aes(x=x,y=y/Y.max),fill="blue",alpha=0.4)+
       theme(axis.text.x = element_text(angle=90,size = rel(3),vjust=0.5),
             axis.text.y = element_text(size = rel(3)),
             axis.title.y = element_text(size=rel(2.5),vjust=0.1),
-            plot.margin = unit(c(0.2,0.2,0.1,1),"cm"))
+            plot.margin = unit(c(0.2,0.2,0.1,1),"cm"))+
+#       geom_text(label=paste("MODEL ",model,sep=""),
+#                 size=rel(12),x=0.96*max(X.ints),y=1*Y.max)
+            geom_text(label=paste("MODEL ",model,sep=""),
+              size=rel(12),x=0.92*max(X.ints),y=0.97)
+    
     theme_set(theme_bw())
     print(g)  
-    #save("ymedian","yplus","ymedian",file=paste("data-model-",model,".RData",sep=""))    
+    dev.off() 
+    save("ymedian","yplus","ymedian",file=paste("data-model-",model,".RData",sep=""))    
   }
-  dev.off() 
+ 
 }
-
+  
 

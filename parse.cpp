@@ -9,6 +9,7 @@
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/gregorian/greg_year.hpp>
+#include <boost/numeric/ublas/vector.hpp>
 #include <boost/exception/all.hpp>
 #include <map>
 #include <set>
@@ -1746,6 +1747,15 @@ int main(int argc, char**argv) {
 	//my_graph.print_adjacency_matrix(0,&cout);
 	//my_graph.print_adjacency_list(0,IGRAPH_IN,&cout);
 	//exit(1);
+	/*compute the alpha-centrality*/
+	boost::numeric::ublas::vector<double > result(igraph_matrix_nrow(&lf_adjmatrix));
+	cout<<my_graph.alpha_centrality(result,0,1.0,0);
+	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	  Bat b = bats_records[i->first];
+	  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      cout<<i->first<<"\t"<<result[bat_id2matrix_id[i->second]]<<endl;	    
+	}
+	exit(1);
 	igraph_vector_t centralities, centralities2;
 	igraph_vector_init(&centralities,igraph_matrix_nrow(&lf_adjmatrix));
 	igraph_vector_fill(&centralities,0);

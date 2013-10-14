@@ -4,6 +4,10 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
+#include <boost/numeric/ublas/fwd.hpp>
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/io.hpp>
+
 #include "/usr/local/include/igraph/igraph.h"
 #include <iostream>
 #include <fstream>
@@ -365,6 +369,7 @@ public:
   void print_adjacency_matrix(int which_graph, ostream *out);
   void print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
+  int alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double> *e,double alpha, int which_graph);  
   ~myigraph();
   
 };

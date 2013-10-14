@@ -11,11 +11,42 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
+#include <boost/numeric/ublas/fwd.hpp>
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/io.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/vector_proxy.hpp>
+#include <boost/numeric/ublas/triangular.hpp>
+#include <boost/numeric/ublas/lu.hpp>
+#include <boost/numeric/ublas/io.hpp>
+
+
 #include "/usr/local/include/igraph/igraph.h"
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
 extern map<string,vector<string> > box_programming;
+
+
+/*helper functions*/
+
+bool InvertMatrix(const boost::numeric::ublas::matrix<double>& input, boost::numeric::ublas::matrix<double>& inverse) {
+ 	using namespace boost::numeric::ublas;
+ 	typedef permutation_matrix<std::size_t> pmatrix;
+ 	// create a working copy of the input
+ 	matrix<double> A(input);
+ 	// create a permutation matrix for the LU-factorization
+ 	pmatrix pm(A.size1());
+ 	// perform LU-factorization
+ 	int res = lu_factorize(A,pm);
+        if( res != 0 ) return false;
+ 	// create identity matrix of "inverse"
+ 	inverse.assign(boost::numeric::ublas::identity_matrix<double>(A.size1()));
+ 	// backsubstitute to get the inverse
+ 	lu_substitute(A, pm, inverse);
+ 	return true;
+ }
+
 /* ======================== CLASS DEFINITIONS ========================== */
 
 
@@ -650,6 +681,7 @@ int myigraph::eigenvector_centrality(igraph_vector_t* result, int which_graph) {
     igraph_warning_handler_t *old_warning_handler = igraph_set_warning_handler(&igraph_warning_handler_ignore);
     
     int errcode = igraph_eigenvector_centrality(&temp_g,result,&eigenvalue,/*directed=*/true,/*scale=*/false,&edge_importance,&aroptions);    
+    
     /**/
     igraph_vector_destroy(&edge_importance);
     igraph_matrix_destroy(&m);
@@ -988,6 +1020,35 @@ long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
   return j-1;
 }
 
+/*calculate alpha centrality*/
+int myigraph::alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double > *e,double alpha, int which_graph) {
+  bool clean = false;
+  igraph_t *g_ptr = (which_graph == 0 ? &graph : rewired_graph);
+  int vc = igraph_vcount(g_ptr);
+  /*get the adjacenty matrix*/
+  igraph_matrix_t a;
+  igraph_matrix_init(&a,vc,vc);
+  igraph_get_adjacency(g_ptr,&a,IGRAPH_GET_ADJACENCY_BOTH,false);
+  /*transform A into boost matrix*/
+  boost::numeric::ublas::matrix<double> A(vc,vc), A_inverse(vc,vc);
+  for (unsigned i=0; i<vc; i++) 
+    for (unsigned j=0; j<vc; j++) 
+      A(i,j) = (i==j ? 1.0 : (-1.0)*alpha*MATRIX(a,i,j));   
+  /**/
+  bool invert_flag = InvertMatrix(A,A_inverse); //returns true on success
+  if (!invert_flag)
+    return 1;    
+  if (!e) {
+    e = new boost::numeric::ublas::vector<double>(boost::numeric::ublas::scalar_vector<double>(vc,1.0));
+    clean = true;
+  } 
+
+  /*now do the final multiplication*/
+  result = boost::numeric::ublas::prod(A_inverse,*e);  
+  if (clean)
+    delete e;
+  return 0;
+}
 
 /*always the original graph*/
 void myigraph::print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out) {
