@@ -4,9 +4,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
-#include <boost/numeric/ublas/fwd.hpp>
-#include <boost/numeric/ublas/vector.hpp>
-#include <boost/numeric/ublas/io.hpp>
+//#include <boost/numeric/ublas/fwd.hpp>
+//#include <boost/numeric/ublas/vector.hpp>
+//#include <boost/numeric/ublas/io.hpp>
 
 #include "/usr/local/include/igraph/igraph.h"
 #include <iostream>
@@ -31,6 +31,7 @@ using namespace std;
 
 class Bat;
 class Box;
+class myigraph;
 
 /* ======================== CLASS DEFINITIONS ========================== */
 
@@ -345,17 +346,45 @@ public:
 			         unsigned nnodes) ;
 };
 
+class centrality_type {
+  public:
+  int type; bool valid;
+  string name;
+  centrality_type(int t) {
+    type=t; valid=true;
+    if (t == 0) 
+      name="indegree";
+    else if (t == 1) 
+      name="eigenvector";
+    else if (t == 2) {
+      name="second-indegree";
+    }
+    else {
+      name="";
+      valid=false;
+      cerr<<"Centrality "<<type<<" undefined"<<endl;
+    }
+  }
+  string str() {return name;}
+};
 
 
-class myigraph {
+//struct fptr {
+ //   int (*func_ptr)(igraph_vector_t *result,int which_graph);
+//}; 
+
+class myigraph {  
 public:
   igraph_t graph;
   igraph_t *rewired_graph;
   igraph_adjlist_t adjlist; //for the original graph and rewired in models 3,4
-  igraph_matrix_t weighted_adj_matrix; //for the original graph
+  igraph_matrix_t weighted_adj_matrix; //for the original graph    
+  void init_centrality_map(centrality_type *ct);
+  int calc_centrality(centrality_type *,igraph_vector_t *result,int which_graph);
   myigraph(igraph_matrix_t *adjmatrix);
   int eigenvector_centrality(igraph_vector_t *result,int which_graph);
   int get_indegrees(igraph_vector_t *result,int which_graph);
+  int get_second_indegree(igraph_vector_t *result,int which_graph, double alpha);
   bool is_connected(igraph_t *g);
   int get_sum_degrees(igraph_t *g);
   void rewire_edges(unsigned long seed);
@@ -369,9 +398,9 @@ public:
   void print_adjacency_matrix(int which_graph, ostream *out);
   void print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
-  int alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double> *e,double alpha, int which_graph);  
-  ~myigraph();
-  
+  //int alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double> *e,double alpha, int which_graph);  
+  ~myigraph();  
 };
+
 
 #endif

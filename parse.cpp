@@ -9,8 +9,8 @@
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/gregorian/greg_year.hpp>
-#include <boost/numeric/ublas/vector.hpp>
-#include <boost/exception/all.hpp>
+//#include <boost/numeric/ublas/vector.hpp>
+//#include <boost/exception/all.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -27,6 +27,8 @@
 
 #include "classes.h"
 
+#include "global_defs.cpp"
+
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
@@ -38,12 +40,7 @@ using namespace boost::gregorian;
 	 check whether the reading device is the right one for the box. The problem is that
 	 with the ascii format.*/
 
-/*Run configurations
- 1. Single run - /home/pmavrodiev/Documents/bats/data/GB2_2008 /home/pmavrodiev/Documents/bats/result_files/bats_config_2008.txt 3 5 050000
-*/
 
-
-#include "global_defs.cpp"
 
 /* =========================== GLOBAL FUNCTIONS ======================= */
 
@@ -55,449 +52,6 @@ bool lf_exists(vector<Lf_pair> *vec_ptr, Lf_pair *element) {
     return false;
 }
 
-/** @OBSOLETE **/
-/* Given "number" find a bin for it in a 128-length array.
-   Which array is taken for the binning depends on the flag
-   argument. All possible arrays are defined within the function.
-   Returns an index to the corresponding color that the given number
-   should have*/
-int binData(double number, int flag) {
-    double mother_daughter_bins[] = {
-        0,
-        0.00234375,
-        0.0046875,
-        0.00703125,
-        0.009375,
-        0.01171875,
-        0.0140625,
-        0.01640625,
-        0.01875,
-        0.02109375,
-        0.0234375,
-        0.02578125,
-        0.028125,
-        0.03046875,
-        0.0328125,
-        0.03515625,
-        0.0375,
-        0.03984375,
-        0.0421875,
-        0.04453125,
-        0.046875,
-        0.04921875,
-        0.0515625,
-        0.05390625,
-        0.05625,
-        0.05859375,
-        0.0609375,
-        0.06328125,
-        0.065625,
-        0.06796875,
-        0.0703125,
-        0.07265625,
-        0.075,
-        0.07734375,
-        0.0796875,
-        0.08203125,
-        0.084375,
-        0.08671875,
-        0.0890625,
-        0.09140625,
-        0.09375,
-        0.09609375,
-        0.0984375,
-        0.10078125,
-        0.103125,
-        0.10546875,
-        0.1078125,
-        0.11015625,
-        0.1125,
-        0.11484375,
-        0.1171875,
-        0.11953125,
-        0.121875,
-        0.12421875,
-        0.1265625,
-        0.12890625,
-        0.13125,
-        0.13359375,
-        0.1359375,
-        0.13828125,
-        0.140625,
-        0.14296875,
-        0.1453125,
-        0.14765625,
-        0.15,
-        0.15234375,
-        0.1546875,
-        0.15703125,
-        0.159375,
-        0.16171875,
-        0.1640625,
-        0.16640625,
-        0.16875,
-        0.17109375,
-        0.1734375,
-        0.17578125,
-        0.178125,
-        0.18046875,
-        0.1828125,
-        0.18515625,
-        0.1875,
-        0.18984375,
-        0.1921875,
-        0.19453125,
-        0.196875,
-        0.19921875,
-        0.2015625,
-        0.20390625,
-        0.20625,
-        0.20859375,
-        0.2109375,
-        0.21328125,
-        0.215625,
-        0.21796875,
-        0.2203125,
-        0.22265625,
-        0.225,
-        0.22734375,
-        0.2296875,
-        0.23203125,
-        0.234375,
-        0.23671875,
-        0.2390625,
-        0.24140625,
-        0.24375,
-        0.24609375,
-        0.2484375,
-        0.25078125,
-        0.253125,
-        0.25546875,
-        0.2578125,
-        0.26015625,
-        0.2625,
-        0.26484375,
-        0.2671875,
-        0.26953125,
-        0.271875,
-        0.27421875,
-        0.2765625,
-        0.27890625,
-        0.28125,
-        0.28359375,
-        0.2859375,
-        0.28828125,
-        0.290625,
-        0.29296875,
-        0.2953125,
-        0.29765625,
-        0.3
-    };
-    double related_bins[]= {
-        -0.3,
-        -0.2953125,
-        -0.290625,
-        -0.2859375,
-        -0.28125,
-        -0.2765625,
-        -0.271875,
-        -0.2671875,
-        -0.2625,
-        -0.2578125,
-        -0.253125,
-        -0.2484375,
-        -0.24375,
-        -0.2390625,
-        -0.234375,
-        -0.2296875,
-        -0.225,
-        -0.2203125,
-        -0.215625,
-        -0.2109375,
-        -0.20625,
-        -0.2015625,
-        -0.196875,
-        -0.1921875,
-        -0.1875,
-        -0.1828125,
-        -0.178125,
-        -0.1734375,
-        -0.16875,
-        -0.1640625,
-        -0.159375,
-        -0.1546875,
-        -0.15,
-        -0.1453125,
-        -0.140625,
-        -0.1359375,
-        -0.13125,
-        -0.1265625,
-        -0.121875,
-        -0.1171875,
-        -0.1125,
-        -0.1078125,
-        -0.103125,
-        -0.0984375,
-        -0.09375,
-        -0.0890625,
-        -0.084375,
-        -0.0796875,
-        -0.075,
-        -0.0703125,
-        -0.065625,
-        -0.0609375,
-        -0.05625,
-        -0.0515625,
-        -0.046875,
-        -0.0421875,
-        -0.0375,
-        -0.0328125,
-        -0.028125,
-        -0.0234375,
-        -0.01875,
-        -0.0140625,
-        -0.009375,
-        -0.0046875,
-        0,
-        0.0046875,
-        0.009375,
-        0.0140625,
-        0.01875,
-        0.0234375,
-        0.028125,
-        0.0328125,
-        0.0375,
-        0.0421875,
-        0.046875,
-        0.0515625,
-        0.05625,
-        0.0609375,
-        0.065625,
-        0.0703125,
-        0.075,
-        0.0796875,
-        0.084375,
-        0.0890625,
-        0.09375,
-        0.0984375,
-        0.103125,
-        0.1078125,
-        0.1125,
-        0.1171875,
-        0.121875,
-        0.1265625,
-        0.13125,
-        0.1359375,
-        0.140625,
-        0.1453125,
-        0.15,
-        0.1546875,
-        0.159375,
-        0.1640625,
-        0.16875,
-        0.1734375,
-        0.178125,
-        0.1828125,
-        0.1875,
-        0.1921875,
-        0.196875,
-        0.2015625,
-        0.20625,
-        0.2109375,
-        0.215625,
-        0.2203125,
-        0.225,
-        0.2296875,
-        0.234375,
-        0.2390625,
-        0.24375,
-        0.2484375,
-        0.253125,
-        0.2578125,
-        0.2625,
-        0.2671875,
-        0.271875,
-        0.2765625,
-        0.28125,
-        0.2859375,
-        0.290625,
-        0.2953125,
-        0.3
-    };
-    double indegree_bins[] = {
-        0,
-        0.4375,
-        0.875,
-        1.3125,
-        1.75,
-        2.1875,
-        2.625,
-        3.0625,
-        3.5,
-        3.9375,
-        4.375,
-        4.8125,
-        5.25,
-        5.6875,
-        6.125,
-        6.5625,
-        7,
-        7.4375,
-        7.875,
-        8.3125,
-        8.75,
-        9.1875,
-        9.625,
-        10.0625,
-        10.5,
-        10.9375,
-        11.375,
-        11.8125,
-        12.25,
-        12.6875,
-        13.125,
-        13.5625,
-        14,
-        14.4375,
-        14.875,
-        15.3125,
-        15.75,
-        16.1875,
-        16.625,
-        17.0625,
-        17.5,
-        17.9375,
-        18.375,
-        18.8125,
-        19.25,
-        19.6875,
-        20.125,
-        20.5625,
-        21,
-        21.4375,
-        21.875,
-        22.3125,
-        22.75,
-        23.1875,
-        23.625,
-        24.0625,
-        24.5,
-        24.9375,
-        25.375,
-        25.8125,
-        26.25,
-        26.6875,
-        27.125,
-        27.5625,
-        28,
-        28.4375,
-        28.875,
-        29.3125,
-        29.75,
-        30.1875,
-        30.625,
-        31.0625,
-        31.5,
-        31.9375,
-        32.375,
-        32.8125,
-        33.25,
-        33.6875,
-        34.125,
-        34.5625,
-        35,
-        35.4375,
-        35.875,
-        36.3125,
-        36.75,
-        37.1875,
-        37.625,
-        38.0625,
-        38.5,
-        38.9375,
-        39.375,
-        39.8125,
-        40.25,
-        40.6875,
-        41.125,
-        41.5625,
-        42,
-        42.4375,
-        42.875,
-        43.3125,
-        43.75,
-        44.1875,
-        44.625,
-        45.0625,
-        45.5,
-        45.9375,
-        46.375,
-        46.8125,
-        47.25,
-        47.6875,
-        48.125,
-        48.5625,
-        49,
-        49.4375,
-        49.875,
-        50.3125,
-        50.75,
-        51.1875,
-        51.625,
-        52.0625,
-        52.5,
-        52.9375,
-        53.375,
-        53.8125,
-        54.25,
-        54.6875,
-        55.125,
-        55.5625,
-        56
-    };
-
-    if (flag == 0) {
-        unsigned length_mother_daughter_bins = sizeof(mother_daughter_bins)/sizeof(double);
-        for (unsigned i=0; i<length_mother_daughter_bins-1; i++) {
-            if (mother_daughter_bins[i] <= number && number <= mother_daughter_bins[i+1])
-                return i;
-        }
-        if (number >= mother_daughter_bins[length_mother_daughter_bins-1])
-            return 127;
-
-        return -1; //to check if number is not in [0,1]
-    }
-    else if (flag == 1) {
-        unsigned length_related_bins = sizeof(related_bins)/sizeof(double);
-        for (unsigned i=0; i<length_related_bins-1; i++) {
-            if (related_bins[i] <= number && number <= related_bins[i+1])
-                return i;
-        }
-        if (number >= related_bins[length_related_bins-1])
-            return 127;
-        else if (number <= related_bins[0])
-            return 0;
-
-        return -1; //to check if number is not in [0,1]
-    }
-
-    else if (flag == 2) {
-        unsigned length_indegree_bins = sizeof(indegree_bins)/sizeof(double);
-        for (unsigned i=0; i<length_indegree_bins-1; i++) {
-            if (indegree_bins[i] <= number && number <= indegree_bins[i+1])
-                return i;
-        }
-        if (number >= indegree_bins[length_indegree_bins-1]) {
-            cout<<"WARNING"<<endl;
-            return 127;
-        }
-        else if (number <= indegree_bins[0])
-            return 0;
-
-        return -1; //to check if number is not in [0,1]
-    }
-    return -1;
-}
 
 /*initialise the boxes based on directory structure*/
 void initBoxes(const char* dirname) {
@@ -677,8 +231,7 @@ void processDataDirectory(string dir_name,string box_name) {
 int main(int argc, char**argv) {
     argv++;
     argc--;
-    /* argv[1] = config file
-     */
+    
     if (argc != 2) {
         cout<<"Version: "<<version<<endl<<endl;
         cout<<"Usage: bats <dir> <config_file>"<<endl<<endl;
@@ -710,6 +263,7 @@ int main(int argc, char**argv) {
         }
         config_lex();	
 	fclose(config_in);
+	centrality_type ct(centrality);
 	
         /*init the output files*/
         stringstream ss5;
@@ -814,13 +368,7 @@ int main(int argc, char**argv) {
                 insert_itr = mother_daughter.insert(insert_element);
             }
         }
-        /*print the matched mothers and daughters*/
-        /*
-        for (multimap<string,string>::iterator tt=mother_daughter.begin(); tt != mother_daughter.end(); tt++) {
-          cout<<tt->first<<" <-- "<<tt->second<<endl;
-        }
-        */
-
+       
         DIR *dir;
         struct dirent *ent;
         string all_box("100"), majority_box("66"),minority_box("33"), control_box("0"),majority_box2("67");
@@ -855,12 +403,8 @@ int main(int argc, char**argv) {
             perror ("");
         }
         /*the number of processed files*/
-        cout<<"Total processed files "<<counter<<endl;
+        cout<<"Total processed files "<<counter<<endl;	
 	
-	/*remove this only temp*/
-	//for (set<string>::iterator ti=unique_strings.begin(); ti != unique_strings.end(); ti++)
-	  //cout<<*ti<<endl;
-	/**/
         /*now that the boxes have been filled with transpoder data, start the real work*/
         /*combine the records of all boxes for all times into a multiset*/
         multiset<BatEntry,batEntryCompare2> multibats;
@@ -1332,17 +876,7 @@ int main(int argc, char**argv) {
 	      printf("%.15g\n", percentage);   
 	}
         
-	/****/
-	/*
-	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
-	    Bat *b = & i->second;
-	    cout<<b->hexid<<endl;
-	    for (map<string,ptime>::iterator j=b->first_reading.begin(); j!=b->first_reading.end(); j++) {
-	      cout<<j->first<<"\t"<<to_simple_string(j->second)<<endl;
-	    }
-	}
-	*/
-	/****/
+	
 	cout<<"Outputting revisit statistics for each box...";
 	ofstream os(revisits.c_str(),ios::out);
 	if (!os.good()) {
@@ -1466,18 +1000,7 @@ int main(int argc, char**argv) {
 	}   
 	os.close();
 	cout<<"DONE"<<endl;
-        /*output all matched pairs*/
-	/*
-        os.open(lf_time_diff.c_str(),ios::out);
-        if (!os.good()) {
-            perror(lf_time_diff.c_str());
-            exit(1);
-        }
-        for (unsigned i=0; i<vec_lfpairs.size(); i++)
-	    vec_lfpairs[i].print(&os);
-            //os<<to_simple_string(vec_lfpairs[i].get_lf_delta())<<endl;
-        os.close();
-	*/
+      
         //output only valid pairs, i.e. those which respect the max. allowed delay b/n leader and follower
         os.open(lf_valid_time_diff.c_str(),ios::out);
         if (!os.good()) {
@@ -1664,11 +1187,7 @@ int main(int argc, char**argv) {
         //igraph_vector_t final_page_rank;
 	
 	/*create edges*/
-	//os.open(combined_networks.c_str(),ios::app);
-	//if (!os.good()) {
-          //  perror(combined_networks.c_str());
-           // exit(1);
-        //}   
+	
         for (unsigned i=0; i<vec_lfpairs.size(); i++) {
             Lf_pair lfpair = vec_lfpairs[i];
             if (lfpair.valid) { //only valid pairs
@@ -1747,55 +1266,65 @@ int main(int argc, char**argv) {
 	//my_graph.print_adjacency_matrix(0,&cout);
 	//my_graph.print_adjacency_list(0,IGRAPH_IN,&cout);
 	//exit(1);
-	/*compute the alpha-centrality*/
-	boost::numeric::ublas::vector<double > result(igraph_matrix_nrow(&lf_adjmatrix));
-	cout<<my_graph.alpha_centrality(result,0,1.0,0);
-	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-	  Bat b = bats_records[i->first];
-	  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-	      cout<<i->first<<"\t"<<result[bat_id2matrix_id[i->second]]<<endl;	    
-	}
+	/*
+	igraph_matrix_t dummy; //square matrix
+        igraph_matrix_init(&dummy,5,5); //init the square matrix
+        igraph_matrix_fill(&dummy,0);
+	MATRIX(dummy,0,1)=1;MATRIX(dummy,4,0)=1;MATRIX(dummy,3,0)=1;
+	MATRIX(dummy,2,1)=1;	
+	//MATRIX(dummy,3,4)=1;
+	myigraph dummy_sq(&dummy);		
+	igraph_vector_t result; igraph_vector_init(&result,5);	
+	dummy_sq.get_second_indegree(&result,0,0.5);
+	for (unsigned i=0; i<igraph_matrix_nrow(&dummy); i++) 
+	  cout<<VECTOR(result)[i]<<endl;
+	igraph_vector_destroy(&result);
 	exit(1);
-	igraph_vector_t centralities, centralities2;
-	igraph_vector_init(&centralities,igraph_matrix_nrow(&lf_adjmatrix));
-	igraph_vector_fill(&centralities,0);
-	igraph_vector_init(&centralities2,igraph_matrix_nrow(&lf_adjmatrix));
-	igraph_vector_fill(&centralities2,0);
+	*/
+	//for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	  //Bat b = bats_records[i->first];
+	  //if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      //cout<<i->first<<"\t"<<result[bat_id2matrix_id[i->second]]<<endl;	    
+	//}	
 
-	string message;
-	stringstream centr;
+	igraph_vector_t centralities;
+	igraph_vector_init(&centralities,igraph_matrix_nrow(&lf_adjmatrix));
+	igraph_vector_fill(&centralities,0);	
+	stringstream centr;	
+	centr<<outdir<<"/"<<ct.str()<<"_original_"<<Year<<".dat";
+	my_graph.calc_centrality(&ct,&centralities,/*rewired=*/0);
+	/*
 	if (centrality == 0) {
 	  message = "Outputting in-degree centrality ...";
           centr<<outdir<<"/indegree_original_"<<Year<<".dat";	
-	  my_graph.get_indegrees(&centralities,/*rewired=*/0);
+	  my_graph.get_indegrees(&centralities,0);
 	}
 	else if (centrality == 1){
 	  message = "Outputting eigenvector centrality ...";
 	  centr<<outdir<<"/eigenvector_original_"<<Year<<".dat";	
-	  my_graph.eigenvector_centrality(&centralities,/*rewired=*/0);
+	  my_graph.eigenvector_centrality(&centralities,0);
 	}
 	else {
 	  message = "Outputting both eigenvector and in-degree centrality in the graphml file";	 
-	  my_graph.get_indegrees(&centralities,/*rewired=*/0);
-	  my_graph.eigenvector_centrality(&centralities2,/*rewired=*/0);
+	  my_graph.get_indegrees(&centralities,0);
+	  my_graph.eigenvector_centrality(&centralities2,0);
 	}
-	cout<<message;	
-	if (centrality != 2) {
-	  ofstream centrfile(centr.str().c_str(),ios::out);
-	  if (!centrfile.good()) {
-	    perror(centr.str().c_str());
-	    exit(1);
-	  }	
-	  for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		Bat b = bats_records[i->first];
-		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-		centrfile<<i->first<<"\t"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<endl;
-		//cout<<i->first<<"\t"<<bat_id2matrix_id[i->second]<<"\t"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<endl;
-	  }
-	  //centrfile<<my_graph.get_sum_degrees(&my_graph.graph)<<endl;
-	  centrfile.close();
+	*/
+	cout<<"Outputting "<<ct.str()<<" centrality...";
+	
+	ofstream centrfile(centr.str().c_str(),ios::out);
+	if (!centrfile.good()) {
+	  perror(centr.str().c_str());
+	  exit(1);
+	}	
+	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      centrfile<<i->first<<"\t"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<endl;
 	}
-	cout<<"DONE"<<endl; vector<double> probs(total_bats_in_lf_events,0);
+	centrfile.close();	
+	cout<<"DONE"<<endl; 
+	vector<double> probs(total_bats_in_lf_events,0);
 	ofstream graphfile;
 	cout<<"Writing graph to file ...";
 	stringstream graph_outputfile;
@@ -1804,18 +1333,12 @@ int main(int argc, char**argv) {
 	my_graph.print_adjacency_matrix(0,&graphfile);
 	graphfile.close();
 	graphfile.open(graph_outputfile.str().c_str(),ios::app);
-	graphfile<<endl<<endl;
-	//os.open(combined_networks.c_str(),ios::app);
-	//if (!os.good()) {
-          //perror(combined_networks.c_str());
-          //exit(1);
-        //}   
+	graphfile<<endl<<endl;	
 	for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
 	  Bat b = bats_records[i->first];
 	  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
 	      graphfile<<i->first<<";"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<";"<<bat_id2matrix_id[i->second]<<endl;	    
-              probs[bat_id2matrix_id[i->second]] = (double)b.cleaned_movement_history.size() / (double)total_readings;
-	      //os<<i->first<<" "<<(double)b.cleaned_movement_history.size()<<" "<<Year<<endl;	      	     
+	      probs[bat_id2matrix_id[i->second]] = (double)b.cleaned_movement_history.size() / (double)total_readings;	      
 	}
 	 //os.close();
 	 graphfile.close();
@@ -1851,10 +1374,11 @@ int main(int argc, char**argv) {
 	     graphmlfile<<"</data>"<<endl;
 	     graphmlfile<<"<data key=\"d2\">"<<endl;	    
 	     graphmlfile<<"<centrality>"<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<"</centrality>"<<endl;	    
+	     //graphmlfile<<"<centrality>"<<result[bat_id2matrix_id[i->second]]<<"</centrality>"<<endl;	    
 	     graphmlfile<<"</data>"<<endl;
     	     if (centrality == 2) {
 	       graphmlfile<<"<data key=\"centrality2\">"<<endl;	    
-	       graphmlfile<<"<centrality2>"<<VECTOR(centralities2)[bat_id2matrix_id[i->second]]<<"</centrality2>"<<endl;	    
+	       graphmlfile<<"<centrality2>"<<0<<"</centrality2>"<<endl;	    
 	       graphmlfile<<"</data>"<<endl;
 	     }
 	     graphmlfile<<"</node>"<<endl;
@@ -1866,7 +1390,7 @@ int main(int argc, char**argv) {
 	 }
 	 graphmlfile<<"</graph>\n</graphml>"<<endl;
 	 graphmlfile.close();
-	 igraph_vector_destroy(&centralities);	
+	 igraph_vector_destroy(&centralities);
 	 cout<<"DONE"<<endl;
 	
 	 /***************************/	
@@ -1883,141 +1407,100 @@ int main(int argc, char**argv) {
 	  gzFile centrfile_shuffled;
 	  igraph_vector_t rewired_centralities;
 	  igraph_vector_init(&rewired_centralities,igraph_matrix_nrow(&lf_adjmatrix));
-	  for (unsigned kk=0; kk<100000 && (centrality !=2); kk++) {	    
-	     stringstream centr_shuffled;
-	     /*MODEL 1*/	     
-	     my_graph.rewire_random_model(1,&probs);
-	     if (!centrality) {
-		centr_shuffled<<outdir<<"/indegree_shuffled_"<<Year<<"_model-1"<<".dat.gz";
-		while (my_graph.get_indegrees(&rewired_centralities,1)) {		  
-		  my_graph.rewire_random_model(1,&probs);
-		}
-	     }
-	      else {
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-1"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		  
-		  my_graph.rewire_random_model(1,&probs);
-		}
-	      }              
+	  for (unsigned kk=0; kk<10000;kk++) {	    
+	    stringstream centr_shuffled;
+	    /*MODEL 1*/	     
+	    my_graph.rewire_random_model(1,&probs);
+	    centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-1.dat.gz";	     
+	    while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+	      my_graph.rewire_random_model(1,&probs);   	     
+	    centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
+	    centr_shuffled.str("");     
+	    //get the edge attributes
+	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
+	    }
+	    gzclose(centrfile_shuffled);
+	    /*MODEL 2*/	      
+	    my_graph.rewire_random_model(2,&probs);
+	    centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-2.dat.gz";	     
+	    while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+	      my_graph.rewire_random_model(2,&probs);   	     
+	    centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
+	    centr_shuffled.str("");     
+	    //get the edge attributes
+	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
+	    }
+	    gzclose(centrfile_shuffled);	     
+	    /*MODEL 3*/	      
+	    my_graph.rewire_random_model(3,&probs);
+	    centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-3.dat.gz";	     
+	    while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+	      my_graph.rewire_random_model(3,&probs);   	     
+	    centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
+	    centr_shuffled.str("");     
+	    //get the edge attributes
+	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
+	    }  
+	    gzclose(centrfile_shuffled);
+	    /*MODEL 4*/
+	    /*Since this preserves indegree, it makes no sense to calculate in-degree centrality*/	      
+	    if (ct.type != 0) {
+	      my_graph.rewire_random_model(4,&probs);
+	      centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-4.dat.gz";	     
+	      while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+		my_graph.rewire_random_model(4,&probs);   	     
 	      centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
 	      centr_shuffled.str("");     
 	      //get the edge attributes
 	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-		  //centrfile_shuffled<<i->first<<"\t"<<VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]<<endl;		
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);		  
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
 	      }
 	      gzclose(centrfile_shuffled);
-	      /*MODEL 2*/	      
-	      my_graph.rewire_random_model(2,&probs);
-	      if (!centrality) {
-		centr_shuffled<<outdir<<"/indegree_shuffled_"<<Year<<"_model-2"<<".dat.gz";
-		while (my_graph.get_indegrees(&rewired_centralities,1)) {		 
-		  my_graph.rewire_random_model(2,&probs);
-		}
-	      }
-	      else {
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-2"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		
-		  my_graph.rewire_random_model(2,&probs);
-		}
-	      }              
-	      centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
-	      centr_shuffled.str("");	     
-	      //get the edge attributes
-	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
-	      }
-	      gzclose(centrfile_shuffled);	     
-	      /*MODEL 3*/	      
-	      my_graph.rewire_random_model(3,&probs);
-	      if (!centrality) {
-		centr_shuffled<<outdir<<"/indegree_shuffled_"<<Year<<"_model-3"<<".dat.gz";
-		while (my_graph.get_indegrees(&rewired_centralities,1)) {		 
-		  my_graph.rewire_random_model(3,&probs);
-		}
-	      }
-	      else {
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-3"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		 
-		  my_graph.rewire_random_model(3,&probs);
-		}
-	      }
-	      centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
-	      centr_shuffled.str("");
-	      //get the edge attributes
-	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);	      		
-	      }	      
-	      gzclose(centrfile_shuffled);
-	      /*MODEL 4*/
-	      /*Since this preserves indegree, it makes no sense to calculate in-degree centrality*/	      
-	      if (centrality == 1) {
-		my_graph.rewire_random_model(4,&probs);
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-4"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		 
-		  my_graph.rewire_random_model(4,&probs);
-		}	      
-		centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
-		centr_shuffled.str("");	    
-		//get the edge attributes
-		for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
-		}	      
-		gzclose(centrfile_shuffled);
-	      }
-	      /*MODEL 5*/	     
-	      my_graph.rewire_random_model(5,&probs); 	   
-	      if (!centrality) {
-		centr_shuffled<<outdir<<"/indegree_shuffled_"<<Year<<"_model-5"<<".dat.gz";
-		while (my_graph.get_indegrees(&rewired_centralities,1)) {  
-		  my_graph.rewire_random_model(5,&probs);
-		}
-	      }
-	      else {
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-5"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		  
-		  my_graph.rewire_random_model(5,&probs);
-		}
-	      }            
-	      centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
-	      centr_shuffled.str("");
-	      //get the edge attributes
-	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
-	      }
-	      gzclose(centrfile_shuffled);
-	      /*MODEL 6*/	      
- 	      /*Since this preserves indegree, it makes no sense to calculate in-degree centrality*/
-	      if (centrality == 1) {
-		my_graph.rewire_random_model(6,&probs);
-		centr_shuffled<<outdir<<"/eigenvector_shuffled_"<<Year<<"_model-6"<<".dat.gz";	
-		while (my_graph.eigenvector_centrality(&rewired_centralities,1)) {		  
-		  my_graph.rewire_random_model(6,&probs);
-		}	      
-		centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
-		centr_shuffled.str("");
-		//get the edge attributes
-		for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
-		  Bat b = bats_records[i->first];
-		  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
-		  gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(),VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
-		}
-		gzclose(centrfile_shuffled);
-	      }
 	    }
-	    igraph_vector_destroy(&rewired_centralities);	    
-	    cout<<"DONE"<<endl;
-	  }
+	    /*MODEL 5*/	     
+	    my_graph.rewire_random_model(5,&probs); 	   
+	    centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-5.dat.gz";	     
+	    while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+	      my_graph.rewire_random_model(5,&probs);   	     
+	    centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
+	    centr_shuffled.str("");     
+	    //get the edge attributes
+	    for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
+	    }	
+	    gzclose(centrfile_shuffled);
+	    /*MODEL 6*/	      
+ 	    /*Since this preserves indegree, it makes no sense to calculate in-degree centrality*/
+	    if (ct.type != 0) {
+	      centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-6.dat.gz";	     
+	      while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
+	        my_graph.rewire_random_model(6,&probs);   	     
+	      centrfile_shuffled = gzopen(centr_shuffled.str().c_str(),"a9");
+	      centr_shuffled.str("");     
+	      //get the edge attributes
+	      for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+		Bat b = bats_records[i->first];
+		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
+		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
+	      }		gzclose(centrfile_shuffled);
+	    }
+	  } //endfor (unsigned kk=0; kk<1000;kk++)
+	 igraph_vector_destroy(&rewired_centralities);	    
+	 cout<<"DONE"<<endl;
+	 }//end if (rewire_random_models)
 	  /***/
 	  /*calculate assortativity*/
 	  stringstream assortativity;

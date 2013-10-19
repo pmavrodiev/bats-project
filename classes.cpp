@@ -11,6 +11,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
+/*
 #include <boost/numeric/ublas/fwd.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
@@ -19,9 +20,10 @@
 #include <boost/numeric/ublas/triangular.hpp>
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/io.hpp>
-
-
+#include <boost/numeric/ublas/exception.hpp>
+*/
 #include "/usr/local/include/igraph/igraph.h"
+//#include "/usr/local/include/igraph/igraph_sparsemat.h"
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
@@ -29,6 +31,98 @@ extern map<string,vector<string> > box_programming;
 
 
 /*helper functions*/
+/*
+template<class T>
+void
+ InverseMatrix2(const boost::numeric::ublas::matrix<T> &m, boost::numeric::ublas::matrix<T> &return_matrix ,
+           bool &singular) {
+     using namespace boost::numeric::ublas;
+     const int size = m.size1();
+     // Cannot invert if non-square matrix or 0x0 matrix.
+     // Report it as singular in these cases, and return 
+     // a 0x0 matrix.
+     if (size != m.size2() || size == 0) {
+         singular = true;
+         return_matrix= matrix<T>(0,0);
+	 return;
+     }
+     // Handle 1x1 matrix edge case as general purpose 
+     // inverter below requires 2x2 to function properly.
+     if (size == 1) {
+         matrix<T> A(1, 1);
+         if (m(0,0) == 0.0) {
+             singular = true;
+             return_matrix= matrix<T>(1,1);
+	     return;
+         }
+         singular = false;
+         A(0,0) = 1/m(0,0);
+	 return_matrix = A;       
+	 return;
+     }
+     // Create an augmented matrix A to invert. Assign the
+     // matrix to be inverted to the left hand side and an
+     // identity matrix to the right hand side.
+     matrix<T> A(size, 2*size);
+     matrix_range<matrix<T> > Aleft(A, 
+                                    boost::numeric::ublas::range(0, size), 
+                                    boost::numeric::ublas::range(0, size));
+     Aleft = m;
+     matrix_range<matrix<T> > Aright(A, 
+                                     boost::numeric::ublas::range(0, size), 
+                                     boost::numeric::ublas::range(size, 2*size));
+     Aright = identity_matrix<T>(size);
+     // Swap rows to eliminate zero diagonal elements.
+     for (int k = 0; k < size; k++) {
+         if ( A(k,k) == 0 ) // XXX: test for "small" instead
+         {
+             // Find a row(l) to swap with row(k)
+             int l = -1;
+             for (int i = k+1; i < size; i++)  {
+                 if ( A(i,k) != 0 ) {
+                     l = i; 
+                     break;
+                 }
+             }
+             // Swap the rows if found
+             if ( l < 0 ) {
+                 std::cerr << "Error:" <<  __FUNCTION__ << ":"
+                           << "Input matrix is singular, because cannot find"
+                           << " a row to swap while eliminating zero-diagonal.";
+                 singular = true;
+		 return;
+             }
+             else 
+             {
+                 matrix_row<matrix<T> > rowk(A, k);
+                 matrix_row<matrix<T> > rowl(A, l);
+                 rowk.swap(rowl); 
+             }
+         }
+     }
+     // Doing partial pivot
+     for (int k = 0; k < size; k++)  {
+         // normalize the current row
+         for (int j = k+1; j < 2*size; j++)
+             A(k,j) /= A(k,k);
+         A(k,k) = 1;
+         // normalize other rows
+         for (int i = 0; i < size; i++) {
+             if ( i != k )  // other rows  // FIX: PROBLEM HERE
+             {
+                 if ( A(i,k) != 0 )
+                 {
+                     for (int j = k+1; j < 2*size; j++)
+                         A(i,j) -= A(k,j) * A(i,k);
+                     A(i,k) = 0;
+                 }
+             }
+         }
+     }
+     singular = false;
+     return_matrix = Aright;
+     return;     
+ }
 
 bool InvertMatrix(const boost::numeric::ublas::matrix<double>& input, boost::numeric::ublas::matrix<double>& inverse) {
  	using namespace boost::numeric::ublas;
@@ -38,7 +132,14 @@ bool InvertMatrix(const boost::numeric::ublas::matrix<double>& input, boost::num
  	// create a permutation matrix for the LU-factorization
  	pmatrix pm(A.size1());
  	// perform LU-factorization
- 	int res = lu_factorize(A,pm);
+ 	int res;
+	try {
+	  res = lu_factorize(A,pm);
+	}
+	catch (std::exception exc) {
+	  cout<<"CAUGHT"<<endl;
+	  return 1;
+	}	
         if( res != 0 ) return false;
  	// create identity matrix of "inverse"
  	inverse.assign(boost::numeric::ublas::identity_matrix<double>(A.size1()));
@@ -46,7 +147,7 @@ bool InvertMatrix(const boost::numeric::ublas::matrix<double>& input, boost::num
  	lu_substitute(A, pm, inverse);
  	return true;
  }
-
+*/
 /* ======================== CLASS DEFINITIONS ========================== */
 
 
@@ -526,6 +627,20 @@ int assortativity_map::avg_neighbour_connectivity(igraph_vector_t *indegrees,
   return 0;
 }  
 
+int myigraph::calc_centrality(centrality_type *ct , igraph_vector_t* result, int which_graph) {
+  if (ct->valid) {
+    if (ct->type == 0)
+      return get_indegrees(result,which_graph);
+    else if (ct->type == 1)
+      return eigenvector_centrality(result,which_graph);
+    else if (ct->type == 2) 
+      return get_second_indegree(result,which_graph, 0.5);
+    else
+      cerr<<"myigraph::calc_centrality() - Error: Unrecognised centrality type "<<ct->type<<endl;
+    return 1;    
+  }
+  return 1;
+}
 
 
 myigraph::myigraph(igraph_matrix_t* adjmatrix) {
@@ -558,8 +673,7 @@ myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     }
     rewired_graph = NULL;
     //finally create the graph
-    igraph_adjlist(&graph,&adjlist,IGRAPH_OUT,false);
-  
+    igraph_adjlist(&graph,&adjlist,IGRAPH_OUT,false);  
 }
 
 /*calculate the total in-degree/out-degree/total degree*/
@@ -614,8 +728,7 @@ bool myigraph::is_connected(igraph_t *g) {
 
 
 int myigraph::get_indegrees(igraph_vector_t *result,int which_graph) {
-  //igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));
-  igraph_vector_fill(result,0); 
+  //igraph_vector_init(result,igraph_matrix_nrow(&weighted_adj_matrix));  
   //result must be initialized with all 0s
   //first check if graph is weakly connected
   if (!is_connected((which_graph==0 ? &graph : rewired_graph))) {
@@ -1021,34 +1134,130 @@ long myigraph::sample_rnd(std::vector< double > probs,igraph_rng_t *rnd) {
 }
 
 /*calculate alpha centrality*/
+/*
 int myigraph::alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double > *e,double alpha, int which_graph) {
-  bool clean = false;
+  bool normalize_centralities=false;
+  bool clean = true;
   igraph_t *g_ptr = (which_graph == 0 ? &graph : rewired_graph);
   int vc = igraph_vcount(g_ptr);
-  /*get the adjacenty matrix*/
+  //get the adjacenty matrix
   igraph_matrix_t a;
   igraph_matrix_init(&a,vc,vc);
   igraph_get_adjacency(g_ptr,&a,IGRAPH_GET_ADJACENCY_BOTH,false);
-  /*transform A into boost matrix*/
+  //cout<<"ORIGINAL MATRIX"<<endl;
+  //for (unsigned i=0; i<igraph_vcount(g_ptr); i++) {
+    //for (unsigned j=0; j<igraph_vcount(g_ptr); j++)
+      //cout<<MATRIX(a,i,j)<<",";    
+  //}  
+  igraph_matrix_transpose(&a);
+  //cout<<"TRANSPOSED MATRIX"<<endl;
+  //for (unsigned i=0; i<igraph_vcount(g_ptr); i++) {
+    //for (unsigned j=0; j<igraph_vcount(g_ptr); j++)
+      //cout<<MATRIX(a,i,j)<<" ";
+    //cout<<endl;
+  //}
+  //get the largest eigenvalue
+  double lev = -10, tolerance = pow(10,-5);
+  unsigned lev_index = 0;
+  int info=0; //gives only warning if QR decomposition failes
+  igraph_vector_t values_real, values_imag;
+  igraph_vector_init(&values_real, 0);
+  igraph_vector_init(&values_imag, 0);
+  
+  igraph_lapack_dgeev(&a,&values_real,&values_imag,NULL,NULL,&info);
+  if (info) {
+    cerr<<"mygraph::alpha_centrality() - Warning: LAPACK dgeev() with non-zero exit status";
+    return (info);
+  }  
+  //get the index and value of max eigenvalue
+  for (unsigned i=0; i<igraph_vector_size(&values_real); i++) {
+    if (VECTOR(values_real)[i] > lev) {
+      lev = VECTOR(values_real)[i];
+      lev_index = i;
+    }    
+  }
+  if (VECTOR(values_imag)[lev_index]) {
+    cerr<<"Largest eigenvalue has non-zero imaginary part"<<endl;
+    return 1;
+  }
+  //cout<<lev<<endl;
+  if (lev <= tolerance) {
+    lev = 0.0;
+    igraph_matrix_scale(&a,alpha);
+  }
+  else 
+    igraph_matrix_scale(&a,(alpha < 1.0/lev ? alpha : 1.0/lev-tolerance)); 
+  //transform A into boost matrix
   boost::numeric::ublas::matrix<double> A(vc,vc), A_inverse(vc,vc);
   for (unsigned i=0; i<vc; i++) 
     for (unsigned j=0; j<vc; j++) 
-      A(i,j) = (i==j ? 1.0 : (-1.0)*alpha*MATRIX(a,i,j));   
-  /**/
-  bool invert_flag = InvertMatrix(A,A_inverse); //returns true on success
-  if (!invert_flag)
+      A(i,j) = (i==j ? 1.0 : (-1.0)*MATRIX(a,i,j));     
+  //bool invert_flag = InvertMatrix(A,A_inverse); //returns true on success
+  bool singular;
+  InverseMatrix2<double>(A,A_inverse,singular); //returns true on success
+  if (singular) {
+    cerr<<"mygraph::alpha_centrality() - Warning: Matrix not invertible"<<endl;
     return 1;    
+  }
   if (!e) {
     e = new boost::numeric::ublas::vector<double>(boost::numeric::ublas::scalar_vector<double>(vc,1.0));
     clean = true;
   } 
-
-  /*now do the final multiplication*/
+  //now do the final multiplication
   result = boost::numeric::ublas::prod(A_inverse,*e);  
+  //normalize
+  if (normalize_centralities) {
+    double sum = 0.0;
+    for (unsigned i=0; i<result.size(); i++) 
+      sum += pow(result[i],2); 
+  
+    //check if all centralities are 0
+    if (sum <= tolerance) {
+      cerr<<"mygraph::alpha_centrality() - Warning: All centralities are 0"<<endl;
+      return 1;
+    }  
+    sum = pow(sum,0.5);
+    for (unsigned i=0; i<result.size(); i++)  
+      result[i] /= sum;  
+    }
+    
   if (clean)
     delete e;
+  
+  igraph_matrix_destroy(&a);
+  igraph_vector_destroy(&values_imag);
+  igraph_vector_destroy(&values_real);
   return 0;
 }
+*/
+
+int myigraph::get_second_indegree(igraph_vector_t* result, int which_graph, double alpha) {
+  igraph_t *g = (which_graph == 0 ? &graph : rewired_graph);
+  unsigned vc = igraph_vcount(g);
+  /*get the weighted in-degree of all vertices*/
+  igraph_vector_t indegree_vector;
+  igraph_vector_init(&indegree_vector,vc);
+  get_indegrees(&indegree_vector,which_graph);
+  
+  for (unsigned i=0; i<vc; i++) {     
+    double second_degree_sum =0.0;
+    igraph_vs_t vertex_selector;
+    igraph_vit_t vertex_iterator;
+    igraph_vs_adj(&vertex_selector,i,IGRAPH_IN); //get all in-neighbours of vertex i   
+    igraph_vit_create(g,vertex_selector,&vertex_iterator);
+    while (!IGRAPH_VIT_END(vertex_iterator)) {
+      //now get the indegree of this first-degree neighbour
+      second_degree_sum += (double) VECTOR(indegree_vector)[IGRAPH_VIT_GET(vertex_iterator)];
+      IGRAPH_VIT_NEXT(vertex_iterator);
+    }
+    VECTOR(*result)[i] = VECTOR(indegree_vector)[i] + alpha * second_degree_sum;    
+    igraph_vit_destroy(&vertex_iterator);
+    igraph_vs_destroy(&vertex_selector);   
+  }  
+  igraph_vector_destroy(&indegree_vector);
+  return 0;
+}
+
 
 /*always the original graph*/
 void myigraph::print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out) {
