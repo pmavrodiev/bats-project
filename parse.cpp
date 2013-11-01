@@ -471,9 +471,9 @@ int main(int argc, char**argv) {
         /***/
         /*after all box objects have been created update the box objects with occupying information*/
 	for (map<string,vector<string> >::iterator itr_box_occup = box_occup_bats.begin(); itr_box_occup != box_occup_bats.end(); itr_box_occup++) {	 
-	  string box = itr_box_occup->first;
+	  string box = itr_box_occup->first;	  
 	  for (unsigned jj=0; jj<itr_box_occup->second.size(); jj++) {
-	    string occupying_bat = itr_box_occup->second[jj];	    
+	    string occupying_bat = itr_box_occup->second[jj];	    	    
 	    Bat *ptr = &bats_records[occupying_bat];
 	    if (ptr->hexid != occupying_bat) {
 	      cout<<"Warning: Bat "<<occupying_bat<<" occupied a box, but no readings exist for her before box occupation"<<endl; 	     
@@ -716,7 +716,8 @@ int main(int argc, char**argv) {
 			//is this passive leading?
 			if (t_d > revisit_interval.first) //&& t_d <= revisit_interval.second) //is this lf event passive leading?			 
 			  newPair.is_passive_leading = true;			
-			bool insert_success = B1->insert_pair(newPair);			
+			bool insert_success = B1->insert_pair(newPair,/*as leader=*/TRUE);			
+			B2->insert_pair(newPair,/*as leader=*/FALSE);
 			if (insert_success) {			  
 			  LF_FLAG lf;
 			  if (b1_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
@@ -757,7 +758,8 @@ int main(int argc, char**argv) {
 			//is this passive leading following?
                         //if (td_update_knowledge > revisit_interval.first)// && td_update_knowledge <= revisit_interval.second)						
 			  //newPair.is_passive_leading = true;
-			bool insert_success = B2->insert_pair(newPair);
+			bool insert_success = B2->insert_pair(newPair,/*as leader=*/TRUE);
+			B1->insert_pair(newPair,/*as leader=*/FALSE);
 			if (insert_success) {			  			
 			  LF_FLAG lf;
 			  if (b2_know_ref.box_knowledge_how == PERSONAL && !bool_ref.custom_boolean) {
@@ -1087,40 +1089,69 @@ int main(int argc, char**argv) {
 	/*first populate each bat object with the boxes she has occuppied*/
         for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
 	  Box *B = &(i->second);
-	  for (unsigned j=0; j<B->occupyingBats.size(); j++) 	     
-	     B->occupyingBats[j]->occuppied_boxes.push_back(i->first);  
-	  
+	  for (unsigned j=0; j<B->occupyingBats.size(); j++)	    
+	     B->occupyingBats[j]->occuppied_boxes.push_back(i->first);    
 	}
         int led_occuppied=0, led_not_occuppied=0,not_led_not_occuppied=0,not_led_occuppied=0;
-        for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
+	int followed_occuppied=0, followed_not_occuppied=0,not_followed_not_occuppied=0,not_followed_occuppied=0;
+	set<string> not_occupied;
+	
+	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
 	  Bat *b = &(i->second);
 	  for (map<string,Box>::iterator j=boxes.begin(); j!=boxes.end(); j++) {
-	    if (j->second.occupiedWhen.is_pos_infinity()) //box never occuppied
-	      continue;	    
+	    if (j->second.occupiedWhen.is_pos_infinity()) {//box never occuppied
+	      not_occupied.insert(j->first);
+	      continue;
+	    }
 	    short bat_status = b->get_lead_occuppied_status(j->first);
-	    if (bat_status == 1)
+	    short bat_status2 = b->get_followed_occuppied_status(j->first);
+	    if (bat_status == 1) {
 	      led_occuppied++;
-	    else if (bat_status == 2)
+	      continue;
+	    }
+	    else if (bat_status == 2) {
 	      led_not_occuppied++;
+	      continue;
+	    }
 	    else if (bat_status == 3)
 	      not_led_not_occuppied++;
 	    else if (bat_status == 4)
 	      not_led_occuppied++;
 	    else 
 	      cerr<<"Error in parse.cpp - Unrecognised return value from Bat.get_lead_occuppied_status()"<<endl;	    
+    	    if (bat_status2 == 1)
+	      followed_occuppied++;
+	    else if (bat_status2 == 2)
+	      followed_not_occuppied++;
+	    else if (bat_status2 == 3)
+	      not_followed_not_occuppied++;
+	    else if (bat_status2 == 4) {
+	      not_followed_occuppied++;
+	      cout<<b->hexid<<"\t"<<j->first<<endl;
+	    }
+	    else 
+	      cerr<<"Error in parse.cpp - Unrecognised return value from Bat.get_followed_occuppied_status()"<<endl;	    	    
 	  }	  
 	}
-      	cout<<"Outputting leading and occupying statistics ...";
+	cout<<"Outputting leading and occupying statistics ...";
 	os.open(leading_following_statistics.c_str());
 	if (!os.good()) {
             perror(leading_following_statistics.c_str());
             exit(1);
         }
+	for (set<string>::iterator bb=not_occupied.begin(); bb!=not_occupied.end(); bb++)
+	  os<<"Box "<<*bb<<" has not been occupied"<<endl;
         os<<"led_occuppied\t"<<led_occuppied<<endl;
 	os<<"led_not_occuppied\t"<<led_not_occuppied<<endl;
 	os<<"not_led_not_occuppied\t"<<not_led_not_occuppied<<endl;
 	os<<"not_led_occuppied\t"<<not_led_occuppied<<endl;
+	os<<"==================="<<endl;
+	os<<"followed_occuppied\t"<<followed_occuppied<<endl;
+	os<<"followed_not_occuppied\t"<<followed_not_occuppied<<endl;
+	os<<"not_followed_not_occuppied\t"<<not_followed_not_occuppied<<endl;
+	os<<"not_followed_occuppied\t"<<not_followed_occuppied<<endl;
 	os.close();
+	
 	os.open(leading_following_statistics_detailed.c_str());
 	if (!os.good()) {
             perror(leading_following_statistics_detailed.c_str());
@@ -1343,6 +1374,22 @@ int main(int argc, char**argv) {
 	 //os.close();
 	 graphfile.close();
 	 cout<<"DONE"<<endl;
+	 /*output the vertex summary*/
+	 cout<<"Outputting vertex summary ...";
+	 map<unsigned, pair<int,int> > vertex_summary_map;
+	 my_graph.calc_vertex_summary(0,&vertex_summary_map);
+	 cout<<my_graph.calc_gcc(&vertex_summary_map)<<endl;
+	 stringstream vstream;
+	 vstream<<outdir<<"/vertex_summary_"<<Year<<".dat";
+	 ofstream vfile(vstream.str().c_str(),ios::out);
+	 vfile<<"bat\tindegree\toutdegree"<<endl;
+	 for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	  Bat b = bats_records[i->first];
+	  if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      vfile<<i->first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].second<<endl;
+	 }
+	 vfile.close();
+	 
 	 /***/	
 	 /*create the graph_ml file*/
 	 cout<<"Outputting the lf network ...";        
@@ -1485,6 +1532,7 @@ int main(int argc, char**argv) {
 	    /*MODEL 6*/	      
  	    /*Since this preserves indegree, it makes no sense to calculate in-degree centrality*/
 	    if (ct.type != 0) {
+	      my_graph.rewire_random_model(6,&probs);
 	      centr_shuffled<<outdir<<"/"<<ct.str()<<"_shuffled_"<<Year<<"_model-6.dat.gz";	     
 	      while (my_graph.calc_centrality(&ct,&rewired_centralities,1))	  
 	        my_graph.rewire_random_model(6,&probs);   	     
@@ -1495,7 +1543,8 @@ int main(int argc, char**argv) {
 		Bat b = bats_records[i->first];
 		if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    		  
 		gzprintf(centrfile_shuffled,"%s\t%10f\n",i->first.c_str(), VECTOR(rewired_centralities)[bat_id2matrix_id[i->second]]);
-	      }		gzclose(centrfile_shuffled);
+	      }		
+	      gzclose(centrfile_shuffled);
 	    }
 	  } //endfor (unsigned kk=0; kk<1000;kk++)
 	 igraph_vector_destroy(&rewired_centralities);	    

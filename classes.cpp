@@ -310,7 +310,7 @@ string Box::howmany_leaders_followers() {
     vector<string> programmed_bats = box_programming[this->name];
     bool found = false;
     for (unsigned j=0; j<programmed_bats.size();j++) 
-      if (programmed_bats[j] == bat_id) {
+      if (programmed_bats[j] == bat_id || programmed_bats[j] == "all") {
 	found=true; break;
       }
     /**/  
@@ -457,18 +457,23 @@ BatKnowledge::BatKnowledge(BatKnowledgeEnum b1, BatKnowledgeHow b2) {
 }
 
 //true if pair is inserted, false otherwise
-bool Bat::insert_pair(Lf_pair lfp) {
+/*leader_or_follower:
+   TRUE - as leader
+   FALSE - as follower*/
+bool Bat::insert_pair(Lf_pair lfp, bool leader_or_follower) {
   bool exists=false;
-  for (unsigned k=0; k<my_lfpairs.size(); k++) {
-    if (my_lfpairs[k].equals(lfp)) {
-      if (lfp.get_lf_delta() < my_lfpairs[k].get_lf_delta())
-	my_lfpairs[k]=lfp;
+  vector<Lf_pair> *where = (leader_or_follower ? &my_lfpairs:&my_lfpairs_as_follower);
+  
+  for (unsigned k=0; k<where->size(); k++) {
+    if ((*where)[k].equals(lfp)) {
+      if (lfp.get_lf_delta() < (*where)[k].get_lf_delta())
+	(*where)[k]=lfp;
       exists=true;
       break;
     }
   }
   if (!exists) {
-    my_lfpairs.push_back(lfp);
+    (*where).push_back(lfp);
     return true;
   }
   return false;
@@ -506,6 +511,41 @@ short Bat::get_lead_occuppied_status(string boxname) {
   
   return -1;
 }
+
+/*gets the "status" of a bat for a given box boxname
+ * Return Values:
+  1 - the bat followed and occupied this box
+  2 - the bat followed but did not occuppy this box
+  3 - the bat did not follow and did not occupy this box
+  4 - the bat did not follow and occupied the box
+*/    
+short Bat::get_followed_occuppied_status(string boxname) {
+  bool occuppied=false, followed=false;
+  if (find(occuppied_boxes.begin(),occuppied_boxes.end(),boxname) != occuppied_boxes.end())
+    occuppied=true;
+
+  for (unsigned i=0; i<my_lfpairs_as_follower.size(); i++) {
+    //sanity check
+    if (this->hexid != my_lfpairs_as_follower[i].follower->hexid)
+      cerr<<endl<<"Error in Bat::followed_to_box() - bat id and leader id do not match."<<endl;
+    if (my_lfpairs_as_follower[i].box_name == boxname) {
+      followed=true;
+      break;
+    }      
+  }
+  if (followed && occuppied)
+    return 1;
+  else if (followed && !occuppied)
+    return 2;
+  else if (!followed && !occuppied)
+    return 3;
+  else if (!followed && occuppied)
+    return 4;
+  
+  return -1;
+}
+
+
     
     
 void Bat::add_movement(ptime Time, Box * box_ptr) {
@@ -1259,7 +1299,53 @@ int myigraph::get_second_indegree(igraph_vector_t* result, int which_graph, doub
 }
 
 
-/*always the original graph*/
+void myigraph::calc_vertex_summary(int which_graph, map<unsigned,pair<int,int> > *result) {
+ igraph_t *g = (which_graph == 0 ? &graph: rewired_graph);
+ //get the adjacency matrix
+ igraph_matrix_t adj;
+ igraph_matrix_init(&adj,igraph_vcount(g),igraph_vcount(g));
+ igraph_get_adjacency(g,&adj,IGRAPH_GET_ADJACENCY_BOTH,0); 
+ for (unsigned i=0; i<igraph_vcount(g); i++) {
+    //get the ith row of the matrix
+    igraph_vector_t row,col;    
+    igraph_vector_init(&row,igraph_vcount(g));
+    igraph_vector_init(&col,igraph_vcount(g));
+    igraph_matrix_get_row(&adj,&row,i);
+    igraph_matrix_get_col(&adj,&col,i);
+    pair<int,int> i_summary(igraph_vector_sum(&col),igraph_vector_sum(&row));
+    (*result)[i] = i_summary;
+    igraph_vector_destroy(&row);
+    igraph_vector_destroy(&col);
+ }
+ igraph_matrix_destroy(&adj);
+}
+
+/*check if giant connected component can emerge*/
+double myigraph::calc_gcc(map<unsigned, pair<int,int> > *m) {
+  struct pair_compare {
+    bool operator()(pair<int,int> p1, pair<int,int> p2) {
+	return (p1.first==p2.first && p1.second==p2.second);
+    }
+  };
+  //pair<int,int> -> count
+  map<pair<int,int>, int > m2;
+  
+  for (map<unsigned, pair<int,int> >::iterator itr=m->begin(); itr!=m->end(); itr++) {
+    if (m2.find(itr->second) == m2.end())
+      m2[itr->second] = 1;
+    else
+      m2[itr->second]++;
+  }  
+  double gcc = 0.0;
+  for (map<pair<int,int>, int >::iterator itr=m2.begin(); itr!=m2.end(); itr++) {
+    int j=itr->first.first, k = itr->first.second;
+    double pjk = (double) itr->second / (double) m->size();
+    gcc += (2.0*j*k-j-k)*pjk;
+  }
+  return gcc;  
+  
+}
+
 void myigraph::print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out) {
     //0 for original graph, 1 for the rewired   
     igraph_adjlist_t graph_adjlist;

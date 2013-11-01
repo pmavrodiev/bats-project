@@ -298,6 +298,7 @@ public:
     map<string,ptime> first_reading; 
     vector<string> daughters_hexids;
     vector<Lf_pair> my_lfpairs;
+    vector<Lf_pair> my_lfpairs_as_follower;
     vector<string> occuppied_boxes; //which boxes have been occupied. takes the name of the box
     vector<event> my_revisits;
     /*last_revisit: misc variable used when identifying the revisits
@@ -305,7 +306,7 @@ public:
     map<string,ptime> last_revisit; //default constructor is neg_infin
     //amother misc variable, used when identifying the revisits
     ptime last_seen; //default constructor is not_a_date_time
-    bool insert_pair(Lf_pair lfp);    //true if pair is inserted, false otherwise
+    bool insert_pair(Lf_pair lfp,bool);    //true if pair is inserted, false otherwise
     //bool led_to_box(string boxname); //did this bat ever lead to box boxname
     /*gets the "status" of a bat for a given box boxname
      * Return Values:
@@ -316,6 +317,7 @@ public:
      -1 - something got fucked
      */    
     short get_lead_occuppied_status(string boxname);
+    short get_followed_occuppied_status(string boxname);
     void add_movement(ptime Time, Box * box_ptr);
     //make the bat informed
     void make_informed(string box_name,ptime informed_time);
@@ -397,6 +399,8 @@ public:
   void rewire_random_model(short model,vector<double> *probs);
   void print_adjacency_matrix(int which_graph, ostream *out);
   void print_adjacency_list(int which_graph,igraph_neimode_t mode /*IGRAPH_OUT or IGRAPH_IN*/,ostream *out);
+  void calc_vertex_summary(int which_graph, map<unsigned,pair<int,int> > *result);
+  double calc_gcc(map<unsigned, pair<int,int> > *m);
   long sample_rnd(vector<double> probs, igraph_rng_t *rnd);
   //int alpha_centrality(boost::numeric::ublas::vector<double > &result,boost::numeric::ublas::vector<double> *e,double alpha, int which_graph);  
   ~myigraph();  

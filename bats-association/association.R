@@ -64,8 +64,6 @@ for (b1 in 1:(length(unique.bats[,1])-1)) {
   }
 }
 
-
-
 #
 rs = dbSendQuery(db,paste("SELECT fin_date FROM Findings where fin_date>\"",Year,"-05-05\" and fin_date<\"",Year,"-31-12\" group by fin_date ORDER BY fin_date  ASC",sep=""))
 unique.dates = fetch(rs,n=-1)
@@ -203,5 +201,65 @@ make.difference.e2n = function() {
   return (return.matrix)
 }
 
+##### MISC
+colony.year="Blutsee_2010/"
+dir=paste("/home/pmavrodiev/Documents/bats/data/",
+          colony.year,sep="")
+setwd(dir)
+
+rs = dbSendQuery(db,"SELECT * FROM `Findings` where  fin_date=\"2011-08-08\" and fin_box=80")
+bats=fetch(rs,n=-1)
+
+
+bats=c("007E",
+      "16D8",
+      "19F7",
+      "1C8A",
+      "2227",
+      "3435",
+      "3546",
+      "514C",
+      "A92B",
+      "C1B3")
+
+
+
+return.vector=rep(NA,length(bats))
+for (b in 1:length(bats)) {
+  command=paste("grep -ir ",bats[b],
+                " * 2>/dev/null | head -n 3 | awk '{split($1,array,\";\")} END{print toupper(array[3])}'",sep="")
+  longname=system(command,intern=TRUE)
+  cat(bats[b],"\t",longname,"\n")
+  return.vector[b]=longname
+}
+cat(paste(return.vector,collapse=","))
+
+#####
+#illustration of testing whether leading determines occupation
+x=rbinom(100000,110,0.5)
+percentile.0.95 = qbinom(0.95,110,0.5)
+dat=data.frame(x=x,above=x>percentile.0.95)
+line=data.frame(x=c(67,67),y=c(0,0.08))
+library(Cairo)
+library(ggplot2)
+library(grid)
+setwd("/home/pmavrodiev/Documents/bats/docs/figures/")
+CairoPDF(file="histogram.pdf",width=15,height=10)    
+    g=ggplot(data=dat,aes(x=x))+
+      geom_histogram(aes(x=x,y=..count../sum(..count..),
+                         fill=above),binwidth=1)+
+      scale_fill_manual(values=c("lightgrey","red"))+
+      geom_line(data=line,aes(x=x,y=y),size=1)+
+      ylab("frequency")+xlab(expression(X))+      
+      theme(axis.text.x = element_text(
+                                       size = rel(3),vjust=0.5),
+            axis.text.y = element_text(size = rel(3)),
+            axis.title.y = element_text(size=rel(2.5),vjust=0.1),
+            axis.title.x = element_text(size=rel(2.5),vjust=0.1),
+            plot.margin = unit(c(0.2,0.2,0.1,1),"cm"),
+            legend.position="none")
+    theme_set(theme_bw())
+    print(g)  
+    dev.off() 
 
 

@@ -153,23 +153,20 @@ LETTER [a-zA-Z]
 }
 
 <INSIDE_DETAILED_BOX_OCCUPATION>{HEXDIGIT}{4} {
-  pch = strtok(config_text,".");
-  //cout<<"3:"<<pch<<" ";
+  pch = strtok(config_text,".");  
   detailed_box_occupation_bats.push_back(pch);
 }
 
 
-<BOX_OCCUP_BATS>{DIGIT}+{LETTER}+":" {
+<BOX_OCCUP_BATS>{BOXDIGIT}{1,5} {
   pch=strtok(config_text,":");
-  current_occup_box = pch;
+  current_occup_box = pch; 
   BEGIN(INSIDE_BOX_OCCUP_BATS);
 }
 
-
-
 <INSIDE_BOX_OCCUP_BATS>{HEXDIGIT}{10} {
   pch=strtok(config_text,".");
-  string current_occupying_bat = pch;
+  string current_occupying_bat = pch;  
   if (current_occup_box == "") {
     printf("Error: Something went wrong while processing the box programming from the config file\n");
     exit(1);
@@ -178,7 +175,7 @@ LETTER [a-zA-Z]
   ref.push_back(current_occupying_bat);  
 }
 
-<BOX_PROGRAMMING>{DIGIT}+{LETTER}+":" {
+<BOX_PROGRAMMING>{BOXDIGIT}{1,5} {
   pch=strtok(config_text,":");
   current_programmed_box = pch;
   BEGIN(INSIDE_BOX_PROGRAMMING);
@@ -191,7 +188,7 @@ LETTER [a-zA-Z]
     printf("Error: Something went wrong while processing the box programming from the config file\n");
     exit(1);
   }  
-  vector<string> &ref = box_programming[current_programmed_box];
+  vector<string> &ref = box_programming[current_programmed_box];  
   ref.push_back(current_programmed_bat);  
 }
 
@@ -266,7 +263,7 @@ LETTER [a-zA-Z]
 }
  
 <BOX_OCCUPATION_DEADLINE>{BOXDIGIT}{1,5} {  
-  pch = strtok(config_text,".");
+  pch = strtok(config_text,".");  
   box_name = pch;  
 } 
  
