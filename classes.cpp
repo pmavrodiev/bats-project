@@ -356,6 +356,22 @@ time_duration Box::getOccupiedDiscoveredDelta() {
 }
 
 
+void Box::print_detailed_lfo(ostream* os) {  
+  for (map<Lf_pair, pair<unsigned, LF_FLAG>,lfcomp >::iterator i=lf_events.begin(); i!=lf_events.end(); i++) {
+    Lf_pair lf = i->first;
+    Bat *l = lf.leader;
+    Bat *f = lf.follower;
+    (*os)<<name<<"\t"<<l->hexid<<"\t"<<f->hexid<<"\t";
+    (*os)<<to_iso_string(lf.tleader)<<"\t";
+    (*os)<<(std::find(l->occuppied_boxes.begin(),l->occuppied_boxes.end(),name) != l->occuppied_boxes.end() ? 1:0)<<"\t";
+    (*os)<<(std::find(f->occuppied_boxes.begin(),f->occuppied_boxes.end(),name) != f->occuppied_boxes.end() ? 1:0)<<"\t";        
+    (*os)<<(l->disturbed_in_box[name].custom_boolean == TRUE ? 1:0)<<"\t";
+    (*os)<<(f->disturbed_in_box[name].custom_boolean == TRUE ? 1:0)<<"\t";
+    (*os)<<to_iso_string(occupiedWhen)<<endl;    
+  }  
+}
+
+
 Lf_pair::Lf_pair() {
   valid=true;
   tleader=not_a_date_time;
@@ -546,7 +562,25 @@ short Bat::get_followed_occuppied_status(string boxname) {
 }
 
 
+void Bat::print_stats(ostream *os) {
+  string current_box = "";
+  //pair.first nfollowings-total numbers of followers you have led
+  //pair.second nleadings - total numbers of leaders you have followed
+  map<string, pair<myint,myint> > stats;    
+  for (unsigned i=0; i<my_lfpairs.size(); i++)
+    stats[my_lfpairs[i].box_name].first++;
+  for (unsigned i=0; i<my_lfpairs_as_follower.size(); i++)
+    stats[my_lfpairs_as_follower[i].box_name].second++;
+  
+  for (map<string,pair<myint,myint> >::iterator itr=stats.begin(); itr!=stats.end(); itr++) {
+    *os<<hexid<<" "<<itr->first<<" "<<itr->second.first.i<<" "<<itr->second.second.i<<" ";
+    *os<<disturbed_in_box[itr->first].custom_boolean<<" ";
+    *os<<(std::find(occuppied_boxes.begin(),occuppied_boxes.end(),itr->first) != occuppied_boxes.end() ? 1 : 0)<<endl;
     
+  }
+  
+  
+}    
     
 void Bat::add_movement(ptime Time, Box * box_ptr) {
   pair<ptime,Box*> entry(Time,box_ptr);

@@ -125,7 +125,8 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 
 /*output files*/
 string lf_time_diff,lf_valid_time_diff,lf_pairs_valid_betweenness_preference,disturbed_leader,lf_valid_time_diff_viz;
-string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread;
+string social_personal_box_lf,bats_lead_follow_behav,most_detailed,revisits,info_spread,activity_file;
 string combined_networks,time_to_occupy,leading_following_statistics,leading_following_statistics_detailed;
+string parameter_sweep;
 /* ==================================================================== */
 

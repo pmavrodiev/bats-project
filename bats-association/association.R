@@ -33,6 +33,9 @@ db = dbConnect(MySQL(),host="localhost", # your host, usually localhost
                        unix.socket="/tmp/mysql.sock"
 )
 
+rs = dbSendQuery(db,"SELECT DISTINCT id_bat FROM Findings where fin_box=\"10001\" and fin_date=\"2008-06-04\"")
+
+
 rs = dbSendQuery(db,paste("SELECT DISTINCT id_bat FROM Findings where fin_date>\"",Year,"-05-05\" and fin_date<\"",Year,"-31-12\"",sep=""))
 #
 unique.bats=fetch(rs,n=-1)

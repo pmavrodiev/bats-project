@@ -9,8 +9,6 @@
 #include <boost/date_time/gregorian/greg_month.hpp>
 #include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/gregorian/greg_year.hpp>
-//#include <boost/numeric/ublas/vector.hpp>
-//#include <boost/exception/all.hpp>
 #include <map>
 #include <set>
 #include <dirent.h>
@@ -255,19 +253,18 @@ int main(int argc, char**argv) {
         monaten["DEC"] = "12";
         /********************/
 	/*init the box occupation dates from bats_config.txt*/	
-        const char* file_name = argv[1];
+        const char* file_name = argv[1];	
         config_in = fopen(file_name,"r");
-        if (config_in == NULL) {
+        if (config_in == NULL) {	    
             perror(file_name);
             exit(1);
-        }
+        }        
         config_lex();	
 	fclose(config_in);
-	centrality_type ct(centrality);
-	
+	centrality_type ct(centrality);	
         /*init the output files*/
         stringstream ss5;
-	string outdir="output_files_new_2/"+Year+"_"+colony;
+	string outdir="/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/"+Year+"_"+colony;
         ss5<<outdir<<"/lf_time_diff_"<<Year<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<"_"<<occupation_deadline<<".txt";
         lf_time_diff = ss5.str();
 	ss5.str(string());
@@ -310,6 +307,11 @@ int main(int argc, char**argv) {
 	ss5<<outdir<<"/leading_following_statistics_detailed.dat";
 	leading_following_statistics_detailed = ss5.str();
 	ss5.str(string());
+	ss5<<outdir<<"/activities.dat";
+	activity_file = ss5.str();
+	ss5.str(string());
+	ss5<<outdir<<"/parameter-sweep-GB2-"<<Year<<".dat";
+	parameter_sweep = ss5.str();
 	/***********************/
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();	
@@ -627,12 +629,16 @@ int main(int argc, char**argv) {
 	     the map gets reset with each box
 	     bat hexid -> exploration object*/
 	    map<string,event> exploration_objects;
-	    //int counter2 = 0;	   
+	    //int counter2 = 0;
+	    pair<set<string>::iterator, bool> set_insert;
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
                 box_bat_entries[i].print(&os_test);                
-                Bat *B1 = &bats_records[box_bat_entries[i].hexid];				
-		 ptime &first_reading = B1->first_reading[bx->name];
-		 if (first_reading.is_not_a_date_time())
+                Bat *B1 = &bats_records[box_bat_entries[i].hexid];
+		/*add the visiting bat to the set of bats who visited this box*/
+		set_insert = bx->knowledgable_bats.insert(B1->hexid);
+		/**/
+		ptime &first_reading = B1->first_reading[bx->name];
+		if (first_reading.is_not_a_date_time())
 		   first_reading = box_bat_entries[i].TimeOfEntry;
 		/***/
 		ptime &b1_ref = lastSeen[box_bat_entries[i].hexid];
@@ -870,17 +876,23 @@ int main(int argc, char**argv) {
 	cout<<"Total readings:\t"<<total_readings<<endl;
 	
 	/*normalize each bats' activity'*/
-	
+	cout<<"Outputting raw and normalized bat activity ...";
+	ofstream os(activity_file.c_str(),ios::out);
+	if (!os.good()) {
+            perror(revisits.c_str());
+            exit(1);
+        }
 	for (map<string,Bat>::iterator i=bats_records.begin(); i!=bats_records.end(); i++) {
-	    Bat *b = & i->second;
-      	      cout<<b->hexid<<"\t"<<b->cleaned_movement_history.size()<<"\t"<<b->movement_history.size()<<"\t";
+	    Bat *b = & i->second;      	      
 	      double percentage = (double)b->cleaned_movement_history.size() / (double)total_readings;	    
-	      printf("%.15g\n", percentage);   
+	      os<<b->hexid<<"\t"<<b->cleaned_movement_history.size()<<"\t"<<total_readings<<"\t"<<percentage;
+	      os<<endl;
 	}
-        
-	
+        cout<<"DONE"<<endl;
+	os.close();
 	cout<<"Outputting revisit statistics for each box...";
-	ofstream os(revisits.c_str(),ios::out);
+	
+	os.open(revisits.c_str(),ios::out);
 	if (!os.good()) {
             perror(revisits.c_str());
             exit(1);
@@ -1002,7 +1014,23 @@ int main(int argc, char**argv) {
 	}   
 	os.close();
 	cout<<"DONE"<<endl;
-      
+	//output results of parameter sweep
+	os.open(parameter_sweep.c_str(),ios::app);
+	if (!os.good()) {
+	  perror(parameter_sweep.c_str());
+	  exit(1);
+	}
+	for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+	  if (vec_lfpairs[i].valid) {
+	    os<<lf_delay.minutes()<<"\t"<<roundtrip_time.minutes()<<"\t"<<occupation_deadline<<"\t";
+	    double dur = (double) vec_lfpairs[i].get_lf_delta().seconds() / 60.0;
+	    dur += vec_lfpairs[i].get_lf_delta().minutes() + 60.0*vec_lfpairs[i].get_lf_delta().hours();
+	    os<<dur<<endl;
+	  }
+	}
+	os.close();
+	//
+	
         //output only valid pairs, i.e. those which respect the max. allowed delay b/n leader and follower
         os.open(lf_valid_time_diff.c_str(),ios::out);
         if (!os.good()) {
@@ -1389,8 +1417,51 @@ int main(int argc, char**argv) {
 	      vfile<<i->first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].second<<endl;
 	 }
 	 vfile.close();
-	 
+	 /*PRINT BAT SUMMARY*/
+	 stringstream batsummary;
+	 batsummary<<outdir<<"/batsummary_"<<Year<<"_"<<colony<<".dat";
+	 ofstream batsummary_file(batsummary.str().c_str(),ios::trunc);
+	 batsummary_file<<"Bat   Box  nfollowings  nleadings  disturbed  occupied"<<endl;
+	 for (map<string,Bat>::iterator bb=bats_records.begin(); bb!=bats_records.end(); bb++) {
+	    bb->second.print_stats(&batsummary_file);
+	 }
+	 batsummary_file.close();
 	 /***/	
+	 /*PRINT DETAILED BOX LEADING FOLLOWING OCCUPATION STATISTICS
+	   AND BASIC BOX VISITATION INFO*/
+	 stringstream boxsummary;
+	 short occupied_counter = 0, discovered_counter = 0;
+	 boxsummary<<outdir<<"/boxsummary_"<<Year<<"_"<<colony<<".dat";
+	 ofstream boxsummary_file(boxsummary.str().c_str(),ios::trunc);
+	 boxsummary_file<<"Box\tdiscovered\t#informed bats at first occupation(all bats)"<<endl;
+	 for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
+	    boxsummary_file<<i->second.name<<"\t";
+	    if (i->second.status == DISCOVERED) {
+	      discovered_counter++;
+	      boxsummary_file<<"YES"<<"\t\t\t";
+	      if (!i->second.occupiedWhen.is_pos_infinity())		
+		boxsummary_file<<i->second.knowledgable_bats.size()<<"("<<bats_records.size()<<")";
+	      else 
+		boxsummary_file<<"Doesn't matter since not occupied";
+	    }
+	    else {
+	      boxsummary_file<<"NO"<<"\t\t\t";
+	      boxsummary_file<<"Doesn't matter since not discovered";
+	    }    	      
+	    if (!i->second.occupiedWhen.is_pos_infinity())
+	      occupied_counter++;	    
+	    boxsummary_file<<endl;	   
+	 }
+	 boxsummary_file<<"Total #boxes\t"<<boxes.size()<<"\t#Discovered "<<discovered_counter<<"\t#Occupied "<<occupied_counter<<endl;
+	 boxsummary_file<<endl;
+	 //
+	 boxsummary_file<<"Box\tLeader\t\tFollower\tLf_time\tloccupied\tfoccupied";
+         boxsummary_file<<"\tlstimulus\tfstimulus\tbox_occupied"<<endl;
+	 for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
+	   i->second.print_detailed_lfo(&boxsummary_file);
+	 }
+	 boxsummary_file.close();	 
+	 /**/
 	 /*create the graph_ml file*/
 	 cout<<"Outputting the lf network ...";        
 	 stringstream graphml;
@@ -1550,6 +1621,7 @@ int main(int argc, char**argv) {
 	 igraph_vector_destroy(&rewired_centralities);	    
 	 cout<<"DONE"<<endl;
 	 }//end if (rewire_random_models)
+	 
 	  /***/
 	  /*calculate assortativity*/
 	  stringstream assortativity;
@@ -1584,11 +1656,11 @@ int main(int argc, char**argv) {
 	  //reshuffled_graph.print_all(&assort_shuffled);
 	  assort_shuffled.close();	  
 	  
-	  igraph_vector_destroy(&indegree);
-	  igraph_vector_destroy(&outdegree);
-	
 	  
 	/*DESTROY STUFF*/          
+	
+	igraph_vector_destroy(&indegree);
+	igraph_vector_destroy(&outdegree);
 	
 	//igraph_vector_destroy(&res3);igraph_vector_destroy(&res4);        
         igraph_matrix_destroy(&lf_adjmatrix);  		
@@ -1600,7 +1672,7 @@ int main(int argc, char**argv) {
             map<string,Box>::iterator jj;
             sqlite3 *db;
             char *zErrMsg = 0;
-            file_sqlitedb = "box_recordings_"+Year+".sqlite";
+            file_sqlitedb = "box_recordings_"+colony+"_"+Year+".sqlite";
             int rc = sqlite3_open(file_sqlitedb.c_str(),&db);
             if (rc) {
                 cout<<"Can't open database: "<<sqlite3_errmsg(db)<<endl;

@@ -214,9 +214,10 @@ public:
     map<Lf_pair, pair<unsigned,LF_FLAG>,lfcomp> lf_events; //bat_id -> <#lf events,status>
     vector<event> revisiting_bats;
     vector<Bat *> occupyingBats; //pointers to the bats that occupied that box
+    set<string> knowledgable_bats; //the hexids of all bats who have visited this box at least once
     vector<pair<ptime, vector<Bat*> > > occupationHistory; //date and bats for all occupation of this box 
     unsigned get_num_occ_bats(); //get the number of occupying bats
-    void discovered(string bat_id,ptime when);
+    void discovered(string bat_id,ptime when);   
     void sort_information_spread();
     /*Makes sure that only a bat follows only once to this box
       typically a bat can follow more than once, if she has participated
@@ -242,6 +243,7 @@ public:
     Box();
     void print();
     void print_detailed_occupation();
+    void print_detailed_lfo(ostream *os); //prints detailed (l)eading(following)(o)ccupation
 };
 
 
@@ -327,6 +329,7 @@ public:
     Bat(string Id);
     Bat();
     void print();
+    void print_stats(ostream *os); //print summary of total leadings,followings per box
     inline bool operator==(const Bat &other) {
         return (this->hexid == other.hexid);
     }
