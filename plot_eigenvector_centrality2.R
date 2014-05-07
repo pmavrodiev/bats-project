@@ -10,8 +10,31 @@ if (length(args) != 1) {
   stop("Insufficient arguments. \n\n <dirs>: path to result files\n\n")
 }
 
-#path = args[1]
-path="/home/pmavrodiev/Documents/bats/result_files/output_files_new_4"
+path = args[1]
+#path="/home/pmavrodiev/Documents/bats/result_files/output_files_new_4"
+
+chisquare.test = function(data,bb=20) {
+  counts=hist(data,breaks=bb,plot=FALSE)$counts
+  mids=hist(data,breaks=bb,plot=FALSE)$mids
+  bin.size=mids[2]-mids[1]
+  start=mids-bin.size/2
+  end=mids+bin.size/2
+  probs=pnorm(end,mean=mean(data),sd=sd(data))-
+    pnorm(start,mean=mean(data),sd=sd(data))
+  chi=chisq.test(counts,p=probs,rescale.p=TRUE)
+  return (chi)
+}
+
+density.estimate = function(value,data) {   
+  data.density=density(data,n=1024,adjust=2)
+  data.subset=data.density$x[data.density$x <= value]
+  index = length(data.subset)
+  if (index == 1024 || index == 0)
+    return (0)   
+  return (data.density$y[index+1])   
+}
+
+
 
 list.dirs = function(path=".", pattern=NULL, all.dirs=FALSE,
                      full.names=TRUE, ignore.case=FALSE) {
@@ -51,8 +74,10 @@ for (d in dirs) {
   
   options(warn=3)
   density.list=list()
-  sink("density-estimates.dat")  
-  for (model in 1:6) {
+  sink("density-estimates-models-4-6.dat")  
+  
+  
+  for (model in c(4,6)) {
     skip.indegree=FALSE
     if (model == 4 | model == 6)
       skip.indegree=TRUE
@@ -123,51 +148,68 @@ for (d in dirs) {
     indegree.original.normed = indegree.original[,2] / Ymax
     indegree.shuffled.matrix.normed=apply(indegree.shuffled.matrix,2,"/",Ymax)    
 }   
-    
-    counter=1
+
+
+
+    counter=1 #counts the bats
     for (r in rownames(density.estimates.this.model)) {
+#       density.estimates.this.model[r,"eigenvector"]=
+#         dnorm(eigenvector.original[counter,2],
+#               mean(eigenvector.shuffled.matrix[r,]),
+#               sd(eigenvector.shuffled.matrix[r,]))
       density.estimates.this.model[r,"eigenvector"]=
-        dnorm(eigenvector.original[counter,2],
-          mean(eigenvector.shuffled.matrix[r,]),sd(eigenvector.shuffled.matrix[r,]))
+        density.estimate(eigenvector.original[counter,2],
+                         eigenvector.shuffled.matrix[r,])      
+#       density.estimates.this.model[r,"second.indegree"]=
+#         dnorm(sd.original.normed[counter],
+#          mean(sd.shuffled.matrix.normed[r,]),
+#          sd(sd.shuffled.matrix.normed[r,]))
       density.estimates.this.model[r,"second.indegree"]=
-        dnorm(sd.original.normed[counter],
-         mean(sd.shuffled.matrix.normed[r,]),sd(sd.shuffled.matrix.normed[r,]))
+        density.estimate(sd.original.normed[counter],
+                         sd.shuffled.matrix.normed[r,])      
       if (!skip.indegree) {
-      density.estimates.this.model[r,"indegree"]=
-        dnorm(indegree.original.normed[counter],
-  mean(indegree.shuffled.matrix.normed[r,]),sd(indegree.shuffled.matrix.normed[r,]))      
+#         density.estimates.this.model[r,"indegree"]=
+#             dnorm(indegree.original.normed[counter],
+#                   mean(indegree.shuffled.matrix.normed[r,]),
+#                   sd(indegree.shuffled.matrix.normed[r,]))      
+        density.estimates.this.model[r,"indegree"]=
+          density.estimate(indegree.original.normed[counter],
+                           indegree.shuffled.matrix.normed[r,])
       }
       counter=counter+1
     }
     density.estimates.this.model[is.infinite(density.estimates.this.model[,1]),2]=0
     density.estimates.this.model[is.infinite(density.estimates.this.model[,2]),2]=0
     density.estimates.this.model[is.infinite(density.estimates.this.model[,3]),2]=0
-    save(density.estimates.this.model,
-         file=paste("density-estimates-model-",model,"-detailed.RData",sep=""))    
+#     save(density.estimates.this.model,
+#          file=paste("density-estimates-model-",model,"-detailed.RData",sep=""))    
     cat("Model\tEigenvector\tSecond-indegree\tIndegree\n")
     cat(model,sum(density.estimates.this.model[,"eigenvector"]),
         sum(density.estimates.this.model[,"second.indegree"]),
-        sum(density.estimates.this.model[,"indegree"]),"\n",sep="\t")    
+        sum(density.estimates.this.model[,"indegree"]),"\n",sep="\t") 
+
 #     X.lab=sd.original[,1]          
 #     X.ints = seq(1,length(X.lab)) 
 # 
-#     yminus.sd = apply(sd.shuffled.matrix,1,quantile,
+#     yminus.sd = apply(sd.shuffled.matrix.normed,1,quantile,
 #                       c(0.025,0.975),TRUE)[1,]    
-#     yplus.sd = apply(sd.shuffled.matrix,1,quantile,
+#     yplus.sd = apply(sd.shuffled.matrix.normed,1,quantile,
 #                      c(0.025,0.975),TRUE)[2,]      
-#     ymedian.sd = apply(sd.shuffled.matrix,1,median,TRUE)
+#     ymedian.sd = apply(sd.shuffled.matrix.normed,1,median,TRUE)
 # #     
 #     yminus.ev = apply(eigenvector.shuffled.matrix,1,quantile,c(0.025,0.975),TRUE)[1,]    
 #     yplus.ev = apply(eigenvector.shuffled.matrix,1,quantile,c(0.025,0.975),TRUE)[2,]      
 #     ymedian.ev = apply(eigenvector.shuffled.matrix,1,median,TRUE)
-#     yminus.in = apply(indegree.shuffled.matrix,1,quantile,c(0.025,0.975),TRUE)[1,]    
-#     yplus.in = apply(indegree.shuffled.matrix,1,quantile,c(0.025,0.975),TRUE)[2,]      
-#     ymedian.in = apply(indegree.shuffled.matrix,1,median,TRUE)    
-#     
+# #     yminus.in = apply(indegree.shuffled.matrix.normed,1,
+# #                       quantile,c(0.025,0.975),TRUE)[1,]    
+# #     yplus.in = apply(indegree.shuffled.matrix.normed,1,
+# #                      quantile,c(0.025,0.975),TRUE)[2,]      
+# #     ymedian.in = apply(indegree.shuffled.matrix.normed,1,median,TRUE)    
+# #     
 #     df=data.frame(x.ints=X.ints,                  
 #                   y.empirical.ev=eigenvector.original[,2],
-#                   #y.empirical.in=indegree.original[,2],
-#                   y.empirical.sd=sd.original[,2]                   
+#                   #y.empirical.in=indegree.original.normed,
+#                   y.empirical.sd=sd.original.normed#sd.original[,2]                   
 #                   )
 #     
 #     df_error = 
@@ -175,71 +217,79 @@ for (d in dirs) {
 #                  y.ev=c(as.numeric(yminus.ev),
 #                         rev(as.numeric(yplus.ev))),
 # #                  y.in=c(as.numeric(yminus.in),
-# #                         rev(as.numeric(yplus.in))),
+# #                        rev(as.numeric(yplus.in))),
 #                  y.sd=c(as.numeric(yminus.sd),
 #                         rev(as.numeric(yplus.sd))),                 
 #                  y.median.sd=c(as.numeric(ymedian.sd),
 #                                rev(as.numeric(ymedian.sd))),                   
 #                  y.median.ev=c(as.numeric(ymedian.ev),
-#                                rev(as.numeric(ymedian.ev)))                      
-#                  y.median.in=c(as.numeric(ymedian.in),
-#                                rev(as.numeric(ymedian.in)))
+#                                rev(as.numeric(ymedian.ev)))                    
+# #                  y.median.in=c(as.numeric(ymedian.in),
+# #                                rev(as.numeric(ymedian.in)))
 #                 )
-    
-#     Ymax=max(c(sd.original[,2],max(sd.shuffled.matrix)))
+#     
+#     #Ymax=max(c(sd.original[,2],max(sd.shuffled.matrix)))
+#     data.label <- data.frame(
+#       x = 0.92*max(X.ints),
+#       y = 0.97,
+#       label = paste("MODEL ",model,sep="")
+#     )
+# 
 #     CairoPDF(file=paste(year,colony,"-seconddegree-model-",
 #                         model,".pdf",sep=""),width=16,height=10)    
-#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.sd/Ymax))+
+#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.sd))+
 #       geom_point(size=7,shape=4)+xlab("")+
 #       ylab("second-degree centrality")+
 #       scale_x_discrete(labels=X.lab)+
 #       scale_y_continuous(limits=c(0,1))+
-#       geom_polygon(data=df_error,mapping=aes(x=x,y=y.sd/Ymax),
+#       geom_polygon(data=df_error,mapping=aes(x=x,y=y.sd),#/Ymax),
 #                    fill="blue",alpha=0.4)+
 #       theme(axis.text.x = element_text(angle=90,
 #                                        size = rel(3),vjust=0.5),
 #             axis.text.y = element_text(size = rel(3)),
 #             axis.title.y = element_text(size=rel(2.5),vjust=0.1),
 #             plot.margin = unit(c(0.2,0.2,0.1,1),"cm"))+
-#       geom_text(label=paste("MODEL ",model,sep=""),
-#                 size=rel(12),x=0.92*max(X.ints),y=0.97)    
+#       geom_text(data=data.label,aes(x=x,y=y,label=label),              
+#                 size=rel(12),family="Times",
+#                 fontface="plain")  
 #     theme_set(theme_bw())
 #     print(g)  
 #     dev.off() 
 #     
 #     CairoPDF(file=paste(year,colony,"-model-",model,".pdf",sep=""),width=16,height=10)
-#     Y.max=1
-#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.ev/Y.max))+
+#     
+#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.ev))+
 #         geom_point(size=7,shape=4)+xlab("")+
 #         ylab("eigenvector centrality")+
 #         scale_x_discrete(labels=X.lab)+
 #         scale_y_continuous(limits=c(0,1))+
-#         geom_polygon(data=df_error,mapping=aes(x=x,y=y.ev/Y.max),fill="blue",alpha=0.4)+
+#         geom_polygon(data=df_error,mapping=aes(x=x,y=y.ev),fill="blue",alpha=0.4)+
 #       theme(axis.text.x = element_text(angle=90,size = rel(3),vjust=0.5),
 #             axis.text.y = element_text(size = rel(3)),
 #             axis.title.y = element_text(size=rel(2.5),vjust=0.1),
 #             plot.margin = unit(c(0.2,0.2,0.1,1),"cm"))+
-#             geom_text(label=paste("MODEL ",model,sep=""),
-#               size=rel(12),x=0.92*max(X.ints),y=0.97)    
+#       geom_text(data=data.label,aes(x=x,y=y,label=label),              
+#             size=rel(12),family="Times",
+#             fontface="plain")     
 #     theme_set(theme_bw())
 #     print(g)  
 #     dev.off() 
-#     
+ 
 #     CairoPDF(file=paste(year,colony,"-indegree-model-",model,".pdf",sep=""),width=16,height=10)    
-#     Y.max=max(c(yplus.in,indegree.original[,2]))
-#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.in/Y.max))+
+#     #Y.max=max(c(yplus.in,indegree.original[,2]))
+#     g=ggplot(data=df,aes(x=x.ints,y=y.empirical.in))+
 #       geom_point(size=7,shape=4)+xlab("")+
 #       ylab("indegree centrality")+
 #       scale_x_discrete(labels=X.lab)+
 #       scale_y_continuous(limits=c(0,1))+
-#       geom_polygon(data=df_error,mapping=aes(x=x,y=y.in/Y.max),fill="blue",alpha=0.4)+
+#       geom_polygon(data=df_error,mapping=aes(x=x,y=y.in),fill="blue",alpha=0.4)+
 #       theme(axis.text.x = element_text(angle=90,size = rel(3),vjust=0.5),
 #             axis.text.y = element_text(size = rel(3)),
 #             axis.title.y = element_text(size=rel(2.5),vjust=0.1),
 #             plot.margin = unit(c(0.2,0.2,0.1,1),"cm"))+ 
-#       geom_text(label=paste("MODEL ",model,sep=""),
-#                 size=rel(12),x=0.92*max(X.ints),y=0.97)
-#     
+#       geom_text(data=data.label,aes(x=x,y=y,label=label),              
+#             size=rel(12),family="Times",
+#             fontface="plain")    
 #     theme_set(theme_bw())
 #     print(g)  
 #     dev.off()      
@@ -249,6 +299,8 @@ for (d in dirs) {
 #     save("ymedian.sd","yplus.sd","ymedian.sd",
 #          file=paste("data-model-",model,".RData",sep="")) 
   }
+  
+
   sink()
   
   
@@ -360,4 +412,3 @@ for (d in dirs) {
 # #   dev.off()
   
   
-}

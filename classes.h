@@ -157,7 +157,7 @@ public:
     Lf_pair(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname, bool v);
     bool equals(Lf_pair &other);    
     void init(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname);     
-    void print(ofstream *out);
+    void print(ostream *out);
     time_duration get_lf_delta();
     void validate(time_duration limit);
     string getLeaderId();    
@@ -187,12 +187,21 @@ public:
   void print(ofstream *);
 };
 
+struct sequences {
+     int longest;
+     vector<int> freqs;
+     //vector< vector<string> > seqs;
+};
+    
 class Box {
 private:
   struct lfcomp {
     bool operator()(Lf_pair l1, Lf_pair l2) const;
+  };
+  struct sortby_tleader {
+    bool operator()(Lf_pair l1, Lf_pair l2) const;
   };  
-public:   
+public:    
     short type; //0-control, 1-minority, 2-majority, 3-all, 4 - heat box
     string name;
     set<BatEntry,batEntryCompare> activity;
@@ -244,6 +253,7 @@ public:
     void print();
     void print_detailed_occupation();
     void print_detailed_lfo(ostream *os); //prints detailed (l)eading(following)(o)ccupation
+    sequences print_longest_sequence();
 };
 
 

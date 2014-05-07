@@ -632,8 +632,13 @@ int main(int argc, char**argv) {
 	    //int counter2 = 0;
 	    pair<set<string>::iterator, bool> set_insert;
             for (unsigned i=0; i<box_bat_entries.size(); i++) {
-                box_bat_entries[i].print(&os_test);                
-                Bat *B1 = &bats_records[box_bat_entries[i].hexid];
+		Bat *B1 = &bats_records[box_bat_entries[i].hexid];
+		
+	        if (B1->is_informed(bx->name,box_bat_entries[i].TimeOfEntry)) 
+		  os_test<<"EXPERIENCED\t";
+		else 
+		  os_test<<"NAIVE      \t";
+                box_bat_entries[i].print(&os_test);                                
 		/*add the visiting bat to the set of bats who visited this box*/
 		set_insert = bx->knowledgable_bats.insert(B1->hexid);
 		/**/
@@ -1155,7 +1160,7 @@ int main(int argc, char**argv) {
 	      not_followed_not_occuppied++;
 	    else if (bat_status2 == 4) {
 	      not_followed_occuppied++;
-	      cout<<b->hexid<<"\t"<<j->first<<endl;
+	      //cout<<b->hexid<<"\t"<<j->first<<endl;
 	    }
 	    else 
 	      cerr<<"Error in parse.cpp - Unrecognised return value from Bat.get_followed_occuppied_status()"<<endl;	    	    
@@ -1434,8 +1439,13 @@ int main(int argc, char**argv) {
 	 boxsummary<<outdir<<"/boxsummary_"<<Year<<"_"<<colony<<".dat";
 	 ofstream boxsummary_file(boxsummary.str().c_str(),ios::trunc);
 	 boxsummary_file<<"Box\tdiscovered\t#informed bats at first occupation(all bats)"<<endl;
+	 vector<int> total_freqs(40,0);
 	 for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
-	    boxsummary_file<<i->second.name<<"\t";
+	   sequences bubu = i->second.print_longest_sequence();
+	   //cout<<i->first<<"\t"<<bubu.longest<<endl; 
+	   for (unsigned j=1; j<bubu.freqs.size(); j++) 
+	     total_freqs[j] += bubu.freqs[j]; 	   
+	   boxsummary_file<<i->second.name<<"\t";
 	    if (i->second.status == DISCOVERED) {
 	      discovered_counter++;
 	      boxsummary_file<<"YES"<<"\t\t\t";
@@ -1453,14 +1463,24 @@ int main(int argc, char**argv) {
 	    boxsummary_file<<endl;	   
 	 }
 	 boxsummary_file<<"Total #boxes\t"<<boxes.size()<<"\t#Discovered "<<discovered_counter<<"\t#Occupied "<<occupied_counter<<endl;
-	 boxsummary_file<<endl;
-	 //
+	 boxsummary_file<<endl;	
 	 boxsummary_file<<"Box\tLeader\t\tFollower\tLf_time\tloccupied\tfoccupied";
          boxsummary_file<<"\tlstimulus\tfstimulus\tbox_occupied"<<endl;
 	 for (map<string,Box>::iterator i=boxes.begin(); i!=boxes.end(); i++) {
 	   i->second.print_detailed_lfo(&boxsummary_file);
 	 }
-	 boxsummary_file.close();	 
+	 boxsummary_file.close();
+         /*output length of all lf sequences */
+	 stringstream lfsummary;	 
+	 lfsummary<<outdir<<"/lf_seqs_summary_"<<Year<<"_"<<colony<<".dat";
+	 ofstream lf_summary_file(lfsummary.str().c_str(),ios::trunc);
+	 for (unsigned k=1; k<total_freqs.size(); k++) {
+	    if (total_freqs[k] == 0)
+	      break;
+	    lf_summary_file<<k<<"\t"<<total_freqs[k]<<endl;
+	 }
+	 lf_summary_file.close();
+	 //	 
 	 /**/
 	 /*create the graph_ml file*/
 	 cout<<"Outputting the lf network ...";        

@@ -1,6 +1,68 @@
 library("data.table")
 library("Matching")
 library(Cairo)
+
+
+
+wilcox.boot = function (Tr, Co, nboots = 1000, alternative = c("two.sided", 
+                                                                "less", "greater"), print.level = 0)  {
+  #options(warn=-3)
+  alternative = match.arg(alternative)
+  tol <- sqrt(.Machine$double.eps)
+  Tr <- Tr[!is.na(Tr)]
+  Co <- Co[!is.na(Co)]
+  w <- c(Tr, Co)
+  obs <- length(w)
+  n.x <- length(Tr)
+  n.y <- length(Co)
+  cutp <- n.x
+  wcox.boot.pval <- NULL
+  bbcount <- 0
+  if (nboots < 10) {
+    nboots <- 10
+    warning("At least 10 'nboots' must be run; seting 'nboots' to 10")
+  }
+  if (nboots < 500) 
+    warning("For publication quality p-values it is recommended that 'nboots'\n be set equal to at least 500 (preferably 1000)")  
+  
+  wcox <- wilcox.test(Tr, Co, alternative = alternative,exact=FALSE)
+
+  if (alternative == "two.sided") {
+    if (print.level > 0) 
+      cat("Wilcoxon rank sum test with continuity correction: two.sided test\n")
+    for (bb in 1:nboots) {
+      if (print.level > 1) 
+        cat("s:", bb, "\n")
+      sindx <- sample(1:obs, obs, replace = TRUE)
+      X1tmp <- w[sindx[1:cutp]]      
+      X2tmp <- w[sindx[(cutp + 1):obs]]      
+      s.wilcox <- wilcox.test(X1tmp, X2tmp,exact=FALSE)
+      if (s.wilcox$statistic <= (wcox$statistic - tol)) 
+        bbcount <- bbcount + 1
+    }
+  }
+  else {
+    if (print.level > 0) 
+      cat("Wilcoxon rank sum test with continuity correction:", alternative, "test\n")
+    for (bb in 1:nboots) {
+      if (print.level > 1) 
+        cat("s:", bb, "\n")
+      sindx <- sample(1:obs, obs, replace = TRUE)
+      X1tmp <- w[sindx[1:cutp]]
+      X2tmp <- w[sindx[(cutp + 1):obs]]
+      s.wilcox <- wilcox.test(X1tmp, X2tmp, alternative = alternative,exact=FALSE)
+      if (s.wilcox$statistic <= (wcox$statistic - tol)) 
+        bbcount <- bbcount + 1
+    }
+  }
+  wilcox.boot.pval = bbcount/nboots
+  ret = list(wilcox.boot.pvalue = wilcox.boot.pval, wcox.original = wcox, nboots = nboots)
+  class(ret) <- "wilcox.boot"
+  options(warn=0)
+  return(ret)
+}
+
+
 setwd("/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2008_GB2")
 
 #setwd("/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2007_BS")
@@ -35,18 +97,42 @@ for (tt in all.turnaround.times) {
         x2=subset(dtable,turnaround_time==tt&
                          lf_delay==lfd&
                   occupation_deadline==all.occupation.deadlines[j])
-        ks.pvalue=wilcox.test(as.numeric(x1$lf_time_diff),
-                        as.numeric(x2$lf_time_diff),alternative="less")$p.value
+        ks.pvalue=wilcox.boot(as.numeric(x1$lf_time_diff),
+                        as.numeric(x2$lf_time_diff))$wilcox.boot.pvalue
         cat(round(ks.pvalue,3),"\t",sep="")
       }      
     }
     cat("\n",sep="")
   }
 }
+
+
+#compare occupation time-pairs for fixed turnaround_time and occ_deadline
+for (tt in 5:5){#all.turnaround.times) {
+  cat("turnaround_time = ",tt,"\n",sep="")
+  for (i in 3:3) {
+    for (lfd in 1:4) {
+      
+      x1=subset(dtable,turnaround_time==tt&
+                  lf_delay==all.lf.delays[lfd]&
+                  occupation_deadline==all.occupation.deadlines[i])
+      for (lfd2 in (lfd+1):5) {
+        x2=subset(dtable,turnaround_time==tt&
+                    lf_delay==all.lf.delays[lfd2]&
+                    occupation_deadline==all.occupation.deadlines[i])
+        ks.pvalue=wilcox.test(as.numeric(x1$lf_time_diff),
+                              as.numeric(x2$lf_time_diff))$p.value
+        cat(round(ks.pvalue,3),"\t",sep="")
+      }
+    }
+    cat("\n",sep="")
+  }
+}
+  
 #get the sample sizes
 for (tt in all.turnaround.times) {
   cat("turnaround_time = ",tt,"\n",sep="")
-  for (lfd in 3:3){#all.lf.delays) {
+  for (lfd in 5:5){#all.lf.delays) {
     for (i in 1:(length(all.occupation.deadlines))) {
       x1=subset(dtable,turnaround_time==tt&
                   lf_delay==lfd&
@@ -83,14 +169,14 @@ plot.histogram = function(data,file.name,b=20,y.max) {
 
 plot.histogram()
 
-x1=subset(dtable,turnaround_time==3&
-            lf_delay==3&occupation_deadline=="020000")
-file.name="/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2008_GB2/lf-time-differences-lf-3-tt-3-od-2.pdf"
+x1=subset(dtable,turnaround_time==2&
+            lf_delay==5&occupation_deadline=="050000")
+file.name="/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2008_GB2/lf-time-differences-lf-5-tt-2-od-5.pdf"
 plot.histogram(as.numeric(x1$lf_time_diff),file.name,b=20,y.max=0.3)
 
-x2=subset(dtable,turnaround_time==3&
-            lf_delay==3&occupation_deadline=="080000")
-file.name="/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2008_GB2/lf-time-differences-lf-3-tt-3-od-8.pdf"
+x2=subset(dtable,turnaround_time==2&
+            lf_delay==5&occupation_deadline=="080000")
+file.name="/home/pmavrodiev/Documents/bats/result_files/output_files_new_param_sweep/2008_GB2/lf-time-differences-lf-5-tt-2-od-8.pdf"
 plot.histogram(as.numeric(x2$lf_time_diff),file.name,b=20,y.max=0.3)
 
 

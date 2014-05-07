@@ -182,6 +182,13 @@ bool Box::lfcomp::operator()(Lf_pair l1, Lf_pair l2) const {
    return (l1.leader->hexid < l2.leader->hexid);    
 }
  
+bool Box::sortby_tleader::operator()(Lf_pair l1, Lf_pair l2) const {
+   if (l1.tleader == l2.tleader)
+    return (l1.tfollower < l2.tfollower);
+   return l1.tleader < l2.tleader;
+};
+  
+ 
 event::event(string event_name, Bat* whichbat , Box* whichbox, ptime whattime, Bat *leader) {
   eventname = event_name;
   bat = whichbat;
@@ -372,6 +379,53 @@ void Box::print_detailed_lfo(ostream* os) {
 }
 
 
+sequences Box::print_longest_sequence() {
+  //first sort the lfevents map according to time of the leader
+  map<Lf_pair, pair<unsigned, LF_FLAG>, sortby_tleader > temp;  
+  for (map<Lf_pair, pair<unsigned, LF_FLAG>,lfcomp >::iterator i=lf_events.begin(); i!=lf_events.end(); i++) {
+    temp[i->first] = i->second;
+  }
+  //now it's sorted
+  //the data structure we need
+  //very unlikeley we need more than 40
+  vector< vector<string> > data_structure(40,vector<string>());
+  vector<int> frequencies(40,0);
+  int start = 1; int largest=1; 
+  for (map<Lf_pair, pair<unsigned, LF_FLAG>,sortby_tleader >::iterator i=temp.begin(); i!=temp.end(); i++) {
+    Lf_pair lfp = i->first;
+    //lfp.print(&cout);
+    //every lf_event is a 1-length sequence
+    frequencies[1]++;
+    string leader = lfp.getLeaderId();
+    string follower = lfp.getFollowerId();
+    vector<string>::iterator itr;
+    bool found=false;
+    start = largest;
+    while (start >= 1) {
+      itr = find(data_structure[start].begin(),data_structure[start].end(),leader);
+      if (itr != data_structure[start].end() ) {// found
+	start++;
+	frequencies[start]++;
+	if (start > largest) 
+	  largest=start;	
+	data_structure[start].push_back(follower);
+	found=true;
+	break;
+      }
+      start--; //not found
+    }   
+    if (!found) {
+      data_structure[start++].push_back(leader);    
+      data_structure[start].push_back(follower);
+    }
+  } 
+  sequences new_seq;
+  new_seq.longest = largest;
+  new_seq.freqs = frequencies;
+  return (new_seq);
+}
+
+
 Lf_pair::Lf_pair() {
   valid=true;
   tleader=not_a_date_time;
@@ -425,7 +479,7 @@ void Lf_pair::init(Bat *B1, Bat *B2, ptime tB1, ptime tB2,string bname) {
   leader_disturbed=false;
 }
 
-void Lf_pair::print(ofstream *out) {
+void Lf_pair::print(ostream *out) {
   if (!out->good()) {
    std::cerr<<"Cannot print to output file: bad file descriptor"<<std::endl;
   }
