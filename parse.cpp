@@ -312,6 +312,10 @@ int main(int argc, char**argv) {
 	ss5.str(string());
 	ss5<<outdir<<"/parameter-sweep-GB2-"<<Year<<".dat";
 	parameter_sweep = ss5.str();
+	ss5.str(string());
+	ss5<<outdir<<"/json-lf-events"<<Year<<"_"<<colony<<"_"<<roundtrip_time.minutes()<<"_"<<lf_delay.minutes()<<".json";
+	json = ss5.str();
+	ss5.str(string());
 	/***********************/
         nbats = bats_map.size(); //bats_vector.size();
         ntransponders = transponders_vector.size();	
@@ -1422,6 +1426,42 @@ int main(int argc, char**argv) {
 	      vfile<<i->first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].first<<"\t"<<vertex_summary_map[bat_id2matrix_id[i->second]].second<<endl;
 	 }
 	 vfile.close();
+	 /*PRINT JSON LF FILE*/
+	 cout<<"Outputting json lf file ...";
+	 ofstream json_file;
+	 json_file.open(json.c_str(),ios::out);
+	 json_file<<"["<<endl<<"{"<<endl;
+	 json_file<<"\"nodes\": ["<<endl;
+	 for (map<string,unsigned>::iterator i=bats_map.begin(); i!=bats_map.end(); i++) {
+	      Bat b = bats_records[i->first];
+	      if (!b.part_of_lf_event) continue;//skip this bat, if she hasn't led or followed at all    
+	      json_file<<"{"<<endl<<"\"id\": "<<"\""<<i->first<<"\""<<","<<endl;
+	      json_file<<"\"name\": "<<"\""<<i->first<<"\""<<","<<endl;
+	      json_file<<"\"eigenvector\": "<<VECTOR(centralities)[bat_id2matrix_id[i->second]]<<","<<endl;
+	      json_file<<"\"indegree\": "<<vertex_summary_map[bat_id2matrix_id[i->second]].first<<endl;
+	      if (i == bats_map.end())
+		json_file<<"}"<<endl;
+	      else
+		json_file<<"},"<<endl;	      
+	 }
+	 json_file<<"],"<<endl;
+	 json_file<<"\"links\": ["<<endl;	 
+	 
+	 for (unsigned i=0; i<vec_lfpairs.size(); i++) {
+            if (vec_lfpairs[i].valid) 
+	        json_file<<"{"<<endl;
+		json_file<<"\"source\": "<<"\""<<vec_lfpairs[i].getFollowerId()<<"\","<<endl;
+		json_file<<"\"target\": "<<"\""<<vec_lfpairs[i].getLeaderId()<<"\","<<endl;
+		json_file<<"\"id\": "<<i<<endl;
+		if (i == vec_lfpairs.size())
+		  json_file<<"}"<<endl<<"]"<<endl;
+		else
+		  json_file<<"},"<<endl;            
+	 }	 
+	 json_file<<"}"<<endl<<"]"<<endl;
+	 json_file.close();
+	 cout<<"DONE"<<endl;
+	 /**/
 	 /*PRINT BAT SUMMARY*/
 	 stringstream batsummary;
 	 batsummary<<outdir<<"/batsummary_"<<Year<<"_"<<colony<<".dat";

@@ -137,7 +137,7 @@ public:
     LF_FLAG();
     LF_FLAG(lf_flag_types other);
 };
-  
+
 
 
 class Lf_pair {

@@ -484,9 +484,11 @@ void Lf_pair::print(ostream *out) {
    std::cerr<<"Cannot print to output file: bad file descriptor"<<std::endl;
   }
   else {
+    time_duration t = get_lf_delta();
     (*out)<<leader->hexid<<" "<<follower->hexid<<" "<<to_iso_string(tleader);
     (*out)<<" "<<to_iso_string(tfollower)<<" "<<box_name<<" "<<leader->box_knowledge[box_name].box_knowledge_how;
-    (*out)<<" "<<leader->box_knowledge[box_name].box_knowledge<<std::endl;
+    (*out)<<" "<<leader->box_knowledge[box_name].box_knowledge;
+    (*out)<<" "<<t.hours()*60.0+t.minutes()+t.seconds()/60.0<<std::endl;
   }
 }
 
@@ -770,7 +772,16 @@ int myigraph::calc_centrality(centrality_type *ct , igraph_vector_t* result, int
   return 1;
 }
 
-
+/*
+        igraph_matrix_t lf_adjmatrix; //square matrix
+        igraph_matrix_init(&lf_adjmatrix,total_bats_in_lf_events,total_bats_in_lf_events); //init the square matrix
+        igraph_matrix_null(&lf_adjmatrix);
+	MATRIX(lf_adjmatrix,x,y) = 2.5
+	
+	
+	
+	
+ */
 myigraph::myigraph(igraph_matrix_t* adjmatrix) {
     long nrow = igraph_matrix_nrow(adjmatrix);
     long ncol = igraph_matrix_ncol(adjmatrix);

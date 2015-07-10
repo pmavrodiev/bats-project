@@ -34,6 +34,8 @@ time_duration revisit_limit(minutes(2));
  *ignoring readings for a given box*/
 string occupation_deadline;
 
+string json;
+
 /* maps mothers to daughters */
 bool multimapcompare (string lhs, string rhs) {
     return lhs<rhs;
